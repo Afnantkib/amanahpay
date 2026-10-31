@@ -69,16 +69,45 @@ public class CustomerAccessController {
 
   @GetMapping("/plan") public Map<String,Object> getPlan(HttpServletRequest request){return plan(authorizedPlan(request));}
 
+  @GetMapping("/account/plans")
+  public List<Map<String,Object>> accountPlans(HttpServletRequest request) {
+    long accountId = authorizedAccount(request);
+    List<Long> ids = db.query("SELECT p.id FROM plans p JOIN customers c ON c.id=p.customer_id WHERE c.customer_account_id=? ORDER BY p.created_at DESC,p.id DESC",
+        (r,n) -> r.getLong(1), accountId);
+    return ids.stream().map(this::plan).toList();
+  }
+
+  @PostMapping("/account/plans/{planId}/accept") @Transactional
+  public Map<String,Object> acceptAccountPlan(@PathVariable long planId,HttpServletRequest request) {
+    long customerId = authorizedAccountPlan(planId,request);
+    Map<String,Object> offer = plan(planId);
+    if (!"PENDING".equals(offer.get("status"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Offer is no longer awaiting acceptance");
+    String snapshot = agreementText(offer);
+    db.update("UPDATE plans SET status='ACTIVE',agreement_snapshot=?,accepted_at=NOW() WHERE id=? AND status='PENDING'",snapshot,planId);
+    db.update("INSERT INTO customer_consents(plan_id,customer_id,consent_text,ip,user_agent) VALUES(?,?,?,?,?)",planId,customerId,"I reviewed the fixed total price and schedule and agree to this merchant's offer.",request.getRemoteAddr(),request.getHeader("User-Agent"));
+    db.update("INSERT INTO plan_events(plan_id,event_type,detail) VALUES(?,'CUSTOMER_ACCEPTED',JSON_OBJECT('ip',?))",planId,request.getRemoteAddr());
+    return Map.of("status","ACTIVE","agreement",snapshot,"plan",plan(planId));
+  }
+
+  @PostMapping("/account/plans/{planId}/payment-report")
+  public Map<String,String> reportAccountPayment(@PathVariable long planId,@Valid @RequestBody PaymentReport body,HttpServletRequest request) {
+    authorizedAccountPlan(planId,request);
+    return reportPaymentForPlan(planId,body);
+  }
+
   @PostMapping("/plan/accept") @Transactional
   public Map<String,Object> accept(HttpServletRequest request){long planId=authorizedPlan(request);Map<String,Object> p=plan(planId);if(!"PENDING".equals(p.get("status")))throw new ResponseStatusException(HttpStatus.CONFLICT,"Offer is no longer awaiting acceptance");String snapshot=agreementText(p);Object customerId=request.getAttribute("amanah.customerId");db.update("UPDATE plans SET status='ACTIVE',agreement_snapshot=?,accepted_at=NOW() WHERE id=? AND status='PENDING'",snapshot,planId);db.update("INSERT INTO customer_consents(plan_id,customer_id,consent_text,ip,user_agent) VALUES(?,?,?,?,?)",planId,customerId,"I reviewed the fixed total price and schedule and agree to this merchant's offer.",request.getRemoteAddr(),request.getHeader("User-Agent"));db.update("INSERT INTO plan_events(plan_id,event_type,detail) VALUES(?,'CUSTOMER_ACCEPTED',JSON_OBJECT('ip',?))",planId,request.getRemoteAddr());return Map.of("status","ACTIVE","agreement",snapshot,"plan",plan(planId));}
 
   @PostMapping("/plan/payment-report")
-  public Map<String,String> reportPayment(@Valid @RequestBody PaymentReport body,HttpServletRequest request){long planId=authorizedPlan(request);var next=db.query("SELECT id,amount_paise FROM installments WHERE plan_id=? AND status IN ('UPCOMING','DUE','OVERDUE') ORDER BY due_date,id LIMIT 1",(r,n)->new long[]{r.getLong(1),r.getLong(2)},planId);if(next.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"No unpaid installment found");long[] due=next.getFirst();db.update("INSERT INTO payments(plan_id,amount_paise,status,reference) VALUES(?,?,'REPORTED',?)",planId,due[1],body.note().substring(0,Math.min(110,body.note().length())));db.update("UPDATE installments SET status='DUE' WHERE id=?",due[0]);db.update("INSERT INTO plan_events(plan_id,event_type,detail) VALUES(?,'PAYMENT_SELF_REPORTED',JSON_OBJECT('note',?))",planId,body.note());return Map.of("status","REPORTED","message","Thanks. Your merchant will confirm the payment.");}
+  public Map<String,String> reportPayment(@Valid @RequestBody PaymentReport body,HttpServletRequest request){long planId=authorizedPlan(request);return reportPaymentForPlan(planId,body);}
 
   @GetMapping("/plan/agreement")
   public ResponseEntity<byte[]> agreement(HttpServletRequest request){Map<String,Object> p=plan(authorizedPlan(request));String text=Objects.toString(p.get("agreement"),agreementText(p));return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=amanah-plan-agreement.txt").body(text.getBytes(StandardCharsets.UTF_8));}
 
   private long authorizedPlan(HttpServletRequest request){Object scope=request.getAttribute("amanah.scope"),planId=request.getAttribute("amanah.planId"),customer=request.getAttribute("amanah.customerId");if(!"CUSTOMER_PLAN".equals(scope)||planId==null||customer==null)throw new AccessDeniedException("Customer plan access required");Long valid=db.queryForObject("SELECT COUNT(*) FROM plans WHERE id=? AND customer_id=?",Long.class,Long.valueOf(planId.toString()),Long.valueOf(customer.toString()));if(valid==null||valid==0)throw new AccessDeniedException("Plan scope does not match");return Long.parseLong(planId.toString());}
+  private long authorizedAccount(HttpServletRequest request){Object scope=request.getAttribute("amanah.scope"),account=request.getAttribute("amanah.customerAccountId");if(!"CUSTOMER_ACCOUNT".equals(scope)||account==null)throw new AccessDeniedException("Customer account access required");return Long.parseLong(account.toString());}
+  private long authorizedAccountPlan(long planId,HttpServletRequest request){long accountId=authorizedAccount(request);List<Long> ids=db.query("SELECT c.id FROM plans p JOIN customers c ON c.id=p.customer_id WHERE p.id=? AND c.customer_account_id=?",(r,n)->r.getLong(1),planId,accountId);if(ids.isEmpty())throw new AccessDeniedException("Plan does not belong to this customer account");return ids.getFirst();}
+  private Map<String,String> reportPaymentForPlan(long planId,PaymentReport body){var next=db.query("SELECT id,amount_paise FROM installments WHERE plan_id=? AND status IN ('UPCOMING','DUE','OVERDUE') ORDER BY due_date,id LIMIT 1",(r,n)->new long[]{r.getLong(1),r.getLong(2)},planId);if(next.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"No unpaid installment found");long[] due=next.getFirst();db.update("INSERT INTO payments(plan_id,amount_paise,status,reference) VALUES(?,?,'REPORTED',?)",planId,due[1],body.note().substring(0,Math.min(110,body.note().length())));db.update("UPDATE installments SET status='DUE' WHERE id=?",due[0]);db.update("INSERT INTO plan_events(plan_id,event_type,detail) VALUES(?,'PAYMENT_SELF_REPORTED',JSON_OBJECT('note',?))",planId,body.note());return Map.of("status","REPORTED","message","Thanks. Your merchant will confirm the payment.");}
   private Map<String,Object> plan(long planId){Map<String,Object> p=db.queryForMap("SELECT p.id,p.customer_id,p.status,p.item_name,p.total_amount_paise,p.down_payment_paise,p.installment_count,p.agreement_snapshot,m.business_name,m.upi_id FROM plans p JOIN merchants m ON m.id=p.merchant_id WHERE p.id=?",planId);List<Map<String,Object>> rows=db.queryForList("SELECT id,amount_paise,status,DATE_FORMAT(due_date,'%Y-%m-%d') dueDate FROM installments WHERE plan_id=? ORDER BY due_date,id",planId);String upi=Objects.toString(p.get("upi_id"),"");long duePaise=rows.isEmpty()?0:((Number)rows.getFirst().get("amount_paise")).longValue();String payLink=upi.isBlank()||duePaise==0?"":"upi://pay?pa="+enc(upi)+"&pn="+enc(Objects.toString(p.get("business_name"),"Merchant"))+"&am="+String.format(Locale.ROOT,"%.2f",duePaise/100.0)+"&cu=INR&tn="+enc("Amanah installment for plan "+planId);Map<String,Object> result=new HashMap<>();result.put("id",p.get("id"));result.put("status",p.get("status"));result.put("itemName",p.get("item_name"));result.put("merchantName",p.get("business_name"));result.put("totalPricePaise",p.get("total_amount_paise"));result.put("downPaymentPaise",p.get("down_payment_paise"));result.put("installmentCount",p.get("installment_count"));result.put("installments",rows);result.put("upiLink",payLink);result.put("agreement",p.get("agreement_snapshot"));return result;}
   private LinkInfo validLink(String raw){var rows=db.query("SELECT ml.id,ml.plan_id,ml.customer_id,c.email FROM magic_links ml JOIN customers c ON c.id=ml.customer_id WHERE ml.token_hash=? AND ml.revoked_at IS NULL AND ml.expires_at>NOW()",(r,n)->new LinkInfo(r.getLong(1),r.getLong(2),r.getLong(3),r.getString(4)),sha(raw));if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Offer link is invalid or expired");return rows.getFirst();}
   private record LinkInfo(long id,long planId,long customerId,String email){}

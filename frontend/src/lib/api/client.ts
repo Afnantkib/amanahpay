@@ -30,6 +30,13 @@ async function customerRequest<T>(path: string, init: RequestInit = {}): Promise
   return (type.includes('application/json') ? response.json() : response.blob()) as Promise<T>;
 }
 export const customerApi = {
+  signupRequest: (fullName: string, email: string, password: string) => customerRequest<{ message: string; email: string }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email, password }) }),
+  verifySignup: async (email: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); customerToken = data.accessToken; return data; },
+  login: async (email: string, password: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); customerToken = data.accessToken; return data; },
+  accountPlans: () => customerRequest<CustomerOffer[]>('/account/plans'),
+  acceptAccountPlan: (planId: number) => customerRequest<{ status: string; plan: CustomerOffer }>(`/account/plans/${planId}/accept`, { method: 'POST' }),
+  reportAccountPayment: (planId: number, note: string) => customerRequest<{ status: string; message: string }>(`/account/plans/${planId}/payment-report`, { method: 'POST', body: JSON.stringify({ note }) }),
+  logout: () => { customerToken = null; },
   requestOtp: (token: string) => { customerToken = null; return customerRequest<{ message: string; email: string }>(`/link/${encodeURIComponent(token)}/otp/request`, { method: 'POST' }); },
   verify: async (token: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; plan: CustomerOffer }>('/otp/verify', { method: 'POST', body: JSON.stringify({ token, code }) }); customerToken = data.accessToken; return data; },
   plan: () => customerRequest<CustomerOffer>('/plan'),

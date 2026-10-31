@@ -49,7 +49,7 @@ export function Home() {
             <path className="splash-arc arc-two" d="M57 32a25 25 0 0 1-25 25" />
             <path className="splash-arc arc-three" d="M32 57A25 25 0 0 1 7 32" />
             <path className="splash-arc arc-four" d="M7 32A25 25 0 0 1 32 7" />
-            <circle cx="54" cy="15" r="8" fill="var(--accent-icon)" />
+            <circle cx="54" cy="15" r="8" fill="#9A6B12" />
           </svg>
           <span>amanah pay</span>
         </motion.div>
@@ -63,7 +63,7 @@ export function Home() {
           <p className="hero-body">{t('hero.body')}</p>
           <div className="hero-actions">
             <Link className="button button-primary button-large" to={'/' + lang + '/customer-access'}>
-              Sign in or get started
+              Customer log in / sign up
               <ArrowRight size={16} />
             </Link>
             <Link className="hero-link" to={'/' + lang + '/how-it-works'}>

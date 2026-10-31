@@ -167,6 +167,9 @@ function SiteLayout() {
             <NavLink to={langPath(lang, '/merchants')}>{t('nav.merchants')}</NavLink>
             <NavLink to={langPath(lang, '/pricing')}>{t('nav.pricing')}</NavLink>
             <NavLink to={langPath(lang, '/approach')}>{t('nav.approach')}</NavLink>
+            <NavLink className="mobile-login-item" to={langPath(lang, '/login')}>
+              {t('nav.login')}
+            </NavLink>
           </nav>
           <div className="nav-actions">
             <ThemeLanguage />
@@ -174,7 +177,7 @@ function SiteLayout() {
               {t('nav.login')}
             </Link>
             <Link className="button button-primary nav-cta" to={langPath(lang, '/customer-access')}>
-              Customer sign in
+              Customer log in / sign up
             </Link>
           </div>
         </div>
@@ -194,6 +197,7 @@ function SiteLayout() {
             <Route path="legal/:slug" element={<LegalPage />} />
             <Route path="login" element={<AuthPage />} />
             <Route path="signup" element={<AuthPage signup />} />
+            <Route path="customer/account" element={<CustomerAccount />} />
             <Route path="app" element={<MerchantLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="overview" element={<Dashboard />} />
@@ -1477,7 +1481,7 @@ function AdminPage() {
   );
 }
 
-function OfferQr({ value }: { value: string }) {
+function OfferQr({ value, purpose = 'offer' }: { value: string; purpose?: 'offer' | 'payment' }) {
   const [image, setImage] = useState('');
   useEffect(() => {
     let active = true;
@@ -1491,8 +1495,8 @@ function OfferQr({ value }: { value: string }) {
   }, [value]);
   return (
     <div className="offer-qr">
-      {image ? <img src={image} alt="Secure QR code for the customer offer" /> : <span className="muted-paragraph">Preparing secure QR…</span>}
-      <small>Customer scans this with their phone camera</small>
+      {image ? <img src={image} alt={purpose === 'payment' ? 'UPI payment QR code for the merchant' : 'Secure QR code for the customer offer'} /> : <span className="muted-paragraph">Preparing secure QR…</span>}
+      <small>{purpose === 'payment' ? 'Scan with a UPI app to pay the merchant' : 'Customer scans this with their phone camera'}</small>
     </div>
   );
 }
@@ -1505,6 +1509,15 @@ function CustomerAccessStart() {
   const [offerLink, setOfferLink] = useState('');
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [mode, setMode] = useState<'choose' | 'login' | 'signup'>('choose');
+  const [signupStep, setSignupStep] = useState<'form' | 'verify'>('form');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [signupCode, setSignupCode] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => () => scannerRef.current?.stop(), []);
 
@@ -1543,39 +1556,183 @@ function CustomerAccessStart() {
     }
   }
 
+  async function submitCustomerAccount(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      if (mode === 'login') {
+        await customerApi.login(email, password);
+        navigate(`/${lang}/customer/account`, { replace: true });
+      } else if (signupStep === 'form') {
+        if (password !== confirmPassword) throw new Error('Passwords do not match.');
+        const result = await customerApi.signupRequest(fullName, email, password);
+        setMaskedEmail(result.email);
+        setSignupStep('verify');
+      } else {
+        await customerApi.verifySignup(email, signupCode);
+        navigate(`/${lang}/customer/account`, { replace: true });
+      }
+    } catch (err) {
+      setError(err instanceof Error && err.message === 'Passwords do not match.'
+        ? err.message
+        : mode === 'login'
+          ? 'We couldn’t sign you in. Check your email and password, then try again.'
+          : signupStep === 'verify'
+            ? 'That code could not be verified. Check it and try again.'
+            : 'We couldn’t create your account. Check your details and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="auth-wrap">
       <section className="panel auth-card customer-access-card">
         <span className="auth-symbol"><BrandSymbol /></span>
-        <span className="eyebrow">CUSTOMER ACCOUNT</span>
-        <h1>Scan to sign in to your plan</h1>
-        <p className="muted-paragraph">
-          Scan the Amanah Pay QR your merchant shared. We’ll verify your email with a one-time code—no password needed.
-        </p>
-        <button className="button button-primary full-width" type="button" onClick={() => void startScan()} disabled={scanning}>
-          {scanning ? 'Point your camera at the QR…' : 'Scan merchant QR'} <ArrowRight size={15} />
-        </button>
-        <div className={`customer-qr-scanner${scanning ? ' is-active' : ''}`}>
-          <video ref={videoRef} muted playsInline />
-          {scanning && <button className="text-link" type="button" onClick={() => { scannerRef.current?.stop(); scannerRef.current = null; setScanning(false); }}>Stop camera</button>}
-        </div>
-        {error && <p role="alert" className="muted-paragraph">{error}</p>}
-        <details className="customer-link-fallback">
-          <summary>Can’t scan? Paste your secure plan link</summary>
-          <form onSubmit={continueToOffer}>
-            <label className="field">
-              <span>Secure plan link</span>
-              <input autoComplete="url" inputMode="url" placeholder="Paste the link from your merchant" value={offerLink} onChange={(e) => { setOfferLink(e.target.value); setError(''); }} required />
-            </label>
-            <button className="button button-outline full-width" type="submit">Continue with link <ArrowRight size={15} /></button>
-          </form>
-        </details>
-        <div className="customer-access-note">
-          <b>First time here?</b>
-          <span>Your merchant’s offer link starts your account setup. Verify your email, then review the plan before accepting.</span>
-        </div>
+        {mode === 'choose' ? (
+          <>
+            <span className="eyebrow">CUSTOMER ACCOUNT</span>
+            <h1>Welcome to Amanah Pay</h1>
+            <p className="muted-paragraph">Sign in with your email and password, or create a new account with email verification.</p>
+            <div className="customer-access-choice-actions">
+              <button className="button button-primary full-width" type="button" onClick={() => setMode('login')}>Log in <ArrowRight size={15} /></button>
+              <button className="button button-outline full-width" type="button" onClick={() => setMode('signup')}>Sign up <ArrowRight size={15} /></button>
+            </div>
+            <div className="customer-access-note">
+              <b>New to Amanah Pay?</b>
+              <span>Create your account here, then see any plans a merchant shares with you.</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <button className="text-link customer-access-back" type="button" onClick={() => { setMode('choose'); setError(''); }}>← Back</button>
+            <span className="eyebrow">{mode === 'login' ? 'CUSTOMER LOGIN' : 'CUSTOMER SIGN UP'}</span>
+            <h1>{mode === 'login' ? 'Log in to Amanah Pay' : signupStep === 'verify' ? 'Verify your email' : 'Create your account'}</h1>
+            <p className="muted-paragraph">
+              {mode === 'login'
+                ? 'Enter your email and password to see your customer plans.'
+                : signupStep === 'verify'
+                  ? `Enter the six-digit code sent to ${maskedEmail}.`
+                  : 'Add your details and choose a password. We’ll email you a code to verify your account.'}
+            </p>
+            <form onSubmit={submitCustomerAccount}>
+              {mode === 'signup' && signupStep === 'form' && (
+                <label className="field"><span>Full name</span><input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={180} /></label>
+              )}
+              {signupStep === 'verify' ? (
+                <label className="field"><span>Email verification code</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={signupCode} onChange={(e) => setSignupCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
+              ) : (
+                <>
+                  <label className="field"><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} /></label>
+                  <label className="field"><span>Password</span><input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 12 : undefined} maxLength={64} /></label>
+                  {mode === 'signup' && <label className="field"><span>Confirm password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} maxLength={64} /></label>}
+                </>
+              )}
+              {error && <p role="alert" className="muted-paragraph">{error}</p>}
+              <button className="button button-primary full-width" type="submit" disabled={busy}>
+                {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : signupStep === 'verify' ? 'Verify and create account' : 'Create account'} <ArrowRight size={15} />
+              </button>
+            </form>
+            {mode === 'signup' && signupStep === 'form' && <small className="muted-paragraph">Use at least 12 characters for your password.</small>}
+            <details className="customer-link-fallback">
+              <summary>Have a merchant offer QR or link?</summary>
+              <p className="muted-paragraph">Open and verify your offer directly without creating a password account.</p>
+              <button className="button button-outline full-width" type="button" onClick={() => void startScan()} disabled={scanning}>
+                {scanning ? 'Point your camera at the QR…' : 'Scan offer QR'} <ArrowRight size={15} />
+              </button>
+              <div className={`customer-qr-scanner${scanning ? ' is-active' : ''}`}>
+                <video ref={videoRef} muted playsInline />
+                {scanning && <button className="text-link" type="button" onClick={() => { scannerRef.current?.stop(); scannerRef.current = null; setScanning(false); }}>Stop camera</button>}
+              </div>
+              <form onSubmit={continueToOffer}>
+                <label className="field"><span>Secure plan link</span><input autoComplete="url" inputMode="url" placeholder="Paste the link from your merchant" value={offerLink} onChange={(e) => { setOfferLink(e.target.value); setError(''); }} required /></label>
+                <button className="button button-outline full-width" type="submit">Continue with link <ArrowRight size={15} /></button>
+              </form>
+            </details>
+          </>
+        )}
         <Link className="text-link" to={`/${lang}/merchants`}>I’m a merchant</Link>
       </section>
+    </div>
+  );
+}
+
+function CustomerAccount() {
+  const lang = useLang();
+  const navigate = useNavigate();
+  const [accepted, setAccepted] = useState<Record<number, boolean>>({});
+  const [showQr, setShowQr] = useState<Record<number, boolean>>({});
+  const [reported, setReported] = useState<Record<number, boolean>>({});
+  const [busyPlan, setBusyPlan] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const plansQuery = useQuery({ queryKey: ['customer-account-plans'], queryFn: customerApi.accountPlans, retry: false });
+  const plans = plansQuery.data || [];
+
+  async function acceptPlan(planId: number) {
+    setBusyPlan(planId);
+    setError('');
+    try { await customerApi.acceptAccountPlan(planId); await plansQuery.refetch(); }
+    catch { setError('We couldn’t accept that plan. Please try again.'); }
+    finally { setBusyPlan(null); }
+  }
+
+  async function reportPayment(planId: number) {
+    setBusyPlan(planId);
+    setError('');
+    try { await customerApi.reportAccountPayment(planId, 'Customer self-reported payment'); setReported((value) => ({ ...value, [planId]: true })); }
+    catch { setError('We couldn’t record your payment report. Please try again.'); }
+    finally { setBusyPlan(null); }
+  }
+
+  function signOut() {
+    customerApi.logout();
+    navigate(`/${lang}/customer-access`, { replace: true });
+  }
+
+  return (
+    <div className="customer-portal customer-account-page">
+      <div className="portal-brand"><BrandLockup /></div>
+      <div className="portal-card panel customer-account-card">
+        <div className="customer-account-heading">
+          <div><span className="eyebrow">CUSTOMER ACCOUNT</span><h1>Your plans</h1></div>
+          <button className="text-link" type="button" onClick={signOut}>Log out</button>
+        </div>
+        {plansQuery.isLoading ? <p className="muted-paragraph">Loading your plans…</p> : plansQuery.isError ? (
+          <><p role="alert" className="muted-paragraph">Your session has expired. Log in again to view your plans.</p><Link className="button button-primary full-width" to={`/${lang}/customer-access`}>Go to customer login</Link></>
+        ) : plans.length === 0 ? (
+          <div className="customer-account-empty"><h2>No plans yet</h2><p className="muted-paragraph">Plans a merchant creates for this email will appear here. You can also open an offer using its secure link or QR code.</p><Link className="button button-outline full-width" to={`/${lang}/customer-access`}>Open a merchant offer</Link></div>
+        ) : (
+          <div className="customer-account-plans">
+            {plans.map((plan) => (
+              <article className="customer-account-plan" key={plan.id}>
+                <div className="merchant-profile">
+                  <span className="merchant-avatar">{initials(plan.merchantName)}</span>
+                  <span><b>{plan.merchantName}</b><small>{plan.itemName}</small></span>
+                  <span className={`tag-chip ${plan.status === 'ACTIVE' ? 'tag-active' : ''}`}>{plan.status === 'ACTIVE' ? 'Active' : 'Awaiting your decision'}</span>
+                </div>
+                <div className="portal-total"><small>Fixed total price</small><strong>{inr(plan.totalPricePaise)}</strong></div>
+                <div className="customer-account-schedule">
+                  {plan.installments.map((row, index) => <div className="preview-row" key={row.id}><span>{index + 1}. {shortDate(row.dueDate)} <small>{row.status.toLowerCase()}</small></span><strong>{inr(row.amount_paise)}</strong></div>)}
+                </div>
+                {plan.status === 'PENDING' ? (
+                  <>
+                    <label className="consent-check"><input type="checkbox" checked={Boolean(accepted[plan.id])} onChange={(e) => setAccepted((value) => ({ ...value, [plan.id]: e.target.checked }))} /><span>I reviewed this fixed total price and payment schedule and agree to the merchant’s offer.</span></label>
+                    <button className="button button-primary full-width" type="button" disabled={!accepted[plan.id] || busyPlan === plan.id} onClick={() => void acceptPlan(plan.id)}>{busyPlan === plan.id ? 'Saving…' : 'Accept plan'} <ArrowRight size={15} /></button>
+                  </>
+                ) : (
+                  <>
+                    {plan.upiLink ? <><a className="button button-primary full-width" href={plan.upiLink}>Pay with UPI app <ArrowUpRight size={15} /></a><button className="button button-outline full-width" type="button" onClick={() => setShowQr((value) => ({ ...value, [plan.id]: !value[plan.id] }))}>{showQr[plan.id] ? 'Hide payment QR' : 'Pay by QR'}</button>{showQr[plan.id] && <OfferQr value={plan.upiLink} purpose="payment" />}</> : <p className="muted-paragraph">Ask {plan.merchantName} for payment details.</p>}
+                    {reported[plan.id] ? <p role="status" className="muted-paragraph">Payment reported. Your merchant will confirm it.</p> : <button className="button button-outline full-width" type="button" disabled={busyPlan === plan.id} onClick={() => void reportPayment(plan.id)}>I’ve paid</button>}
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+        {error && <p role="alert" className="muted-paragraph">{error}</p>}
+      </div>
+      <div className="portal-foot">Your payments go directly to each merchant · <Link to={`/${lang}/legal/privacy`}>Privacy</Link></div>
     </div>
   );
 }
@@ -1591,6 +1748,7 @@ function CustomerPortal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reported, setReported] = useState(false);
+  const [showPaymentQr, setShowPaymentQr] = useState(false);
   useEffect(() => {
     let active = true;
     customerApi.requestOtp(token).then((result) => { if (active) { setMaskedEmail(result.email); setView('verify'); } }).catch(() => { if (active) { setError('This offer link may have expired. Ask the merchant to send you a new one.'); setView('error'); } });
@@ -1681,7 +1839,15 @@ function CustomerPortal() {
             </span>
             <h1>Offer accepted</h1>
             <p className="muted-paragraph">{plan?.merchantName} will receive your payments. Keep this schedule and your agreement for reference.</p>
-            {plan?.upiLink ? <a className="button button-primary full-width" href={plan.upiLink}>{t('labels.payUpi')} <ArrowUpRight size={15} /></a> : <p className="muted-paragraph">Ask {plan?.merchantName} for their payment details.</p>}
+            {plan?.upiLink ? (
+              <>
+                <a className="button button-primary full-width" href={plan.upiLink}>Pay with UPI app <ArrowUpRight size={15} /></a>
+                <button className="button button-outline full-width" onClick={() => setShowPaymentQr((visible) => !visible)}>
+                  {showPaymentQr ? 'Hide payment QR' : 'Pay by QR'}
+                </button>
+                {showPaymentQr && <OfferQr value={plan.upiLink} purpose="payment" />}
+              </>
+            ) : <p className="muted-paragraph">Ask {plan?.merchantName} for their payment details.</p>}
             {reported ? <p role="status" className="muted-paragraph">Payment marked as reported. Your merchant will confirm it.</p> : <button className="button button-outline full-width" onClick={async () => { try { const result = await customerApi.reportPayment('Customer self-reported payment'); setReported(true); setError(result.message); } catch { setError('Could not submit the payment report.'); } }}>I’ve paid</button>}
             <button className="text-link portal-agreement" onClick={() => void downloadAgreement()}>Download agreement</button>
             {error && <p role="status" className="muted-paragraph">{error}</p>}

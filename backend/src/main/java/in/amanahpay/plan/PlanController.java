@@ -44,8 +44,11 @@ public class PlanController {
     Money total = Money.inr(req.totalPricePaise());
     Money down = Money.inr(req.downPaymentPaise());
     var schedule = InstallmentSchedule.create(total, down, req.installmentCount(), req.firstDueDate(), InstallmentSchedule.Frequency.MONTHLY);
+    String customerEmail = req.customerEmail().trim().toLowerCase(Locale.ROOT);
+    List<Map<String, Object>> customerAccounts = db.queryForList("SELECT id FROM customer_accounts WHERE email=?", customerEmail);
+    Long customerAccountId = customerAccounts.isEmpty() ? null : ((Number) customerAccounts.getFirst().get("id")).longValue();
     KeyHolder customerKey = new GeneratedKeyHolder();
-    db.update(c -> {PreparedStatement ps=c.prepareStatement("INSERT INTO customers(merchant_id,full_name,email,phone) VALUES(?,?,?,?)", new String[]{"id"});ps.setLong(1,merchantId);ps.setString(2,req.customerName().trim());ps.setString(3,req.customerEmail().trim().toLowerCase(Locale.ROOT));ps.setString(4,req.phone());return ps;},customerKey);
+    db.update(c -> {PreparedStatement ps=c.prepareStatement("INSERT INTO customers(merchant_id,full_name,email,phone,customer_account_id) VALUES(?,?,?,?,?)", new String[]{"id"});ps.setLong(1,merchantId);ps.setString(2,req.customerName().trim());ps.setString(3,customerEmail);ps.setString(4,req.phone());if(customerAccountId==null)ps.setNull(5,java.sql.Types.BIGINT);else ps.setLong(5,customerAccountId);return ps;},customerKey);
     long customerId = Objects.requireNonNull(customerKey.getKey()).longValue();
     KeyHolder planKey = new GeneratedKeyHolder();
     db.update(c -> {PreparedStatement ps=c.prepareStatement("INSERT INTO plans(merchant_id,customer_id,status,total_amount_paise,item_name,down_payment_paise,installment_count,first_due_date) VALUES(?,?,'PENDING',?,?,?,?,?)",new String[]{"id"});ps.setLong(1,merchantId);ps.setLong(2,customerId);ps.setLong(3,req.totalPricePaise());ps.setString(4,req.itemName().trim());ps.setLong(5,req.downPaymentPaise());ps.setInt(6,req.installmentCount());ps.setDate(7,java.sql.Date.valueOf(req.firstDueDate()));return ps;},planKey);

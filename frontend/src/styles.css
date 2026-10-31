@@ -58,6 +58,9 @@
   gap: 30px;
   margin-inline-start: auto;
 }
+.site-nav .mobile-login-item {
+  display: none;
+}
 .site-nav a,
 .text-link {
   font-size: 13px;
@@ -137,17 +140,17 @@
 .button-outline {
   background: var(--dark-ink);
   border-color: var(--border);
-  color: var(--primary);
+  color: #ffffff;
 }
 .button-outline:hover {
   background: var(--ink);
   border-color: var(--ink);
-  color: var(--primary);
+  color: #ffffff;
 }
 html[data-theme='dark'] .button-outline:hover {
   background: var(--surface2);
   border-color: var(--muted);
-  color: var(--accent-text);
+  color: #ffffff;
 }
 html[data-theme='dark'] .button-outline {
   border-color: var(--muted);
@@ -1467,6 +1470,18 @@ select {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.customer-access-choice-actions {
+  display: grid;
+  gap: 10px;
+}
+.customer-access-back {
+  align-self: flex-start;
+  padding: 4px 0;
+  color: #ffffff;
+}
+.customer-access-back:hover {
+  color: #ffffff;
 }
 .customer-access-note {
   display: grid;
@@ -2928,6 +2943,60 @@ html[data-theme='dark'] .receipt-check {
   padding: 25px;
   margin: 25px 0 13px;
 }
+.customer-account-card {
+  width: min(100%, 560px);
+}
+.customer-account-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.customer-account-heading h1 {
+  margin: 7px 0 16px;
+  font-size: 25px;
+}
+.customer-account-plans {
+  display: grid;
+  gap: 16px;
+}
+.customer-account-plan {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.customer-account-plan .merchant-profile {
+  margin-bottom: 10px;
+}
+.customer-account-plan .merchant-profile > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+.customer-account-plan .merchant-profile small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.customer-account-plan .tag-chip {
+  flex: none;
+}
+.customer-account-schedule {
+  margin: 8px 0 14px;
+}
+.customer-account-plan .consent-check {
+  margin: 16px 0;
+}
+.customer-account-plan .button + .button {
+  margin-top: 9px;
+}
+.customer-account-empty {
+  padding: 18px 0;
+}
+.customer-account-empty h2 {
+  font-size: 18px;
+}
 .portal-card h1 {
   font-size: 23px;
   letter-spacing: -0.04em;
@@ -3153,6 +3222,9 @@ html[data-theme='dark'] .receipt-check {
   .site-nav a {
     padding: 12px;
     font-size: 13px;
+  }
+  .site-nav .mobile-login-item {
+    display: block;
   }
   .nav-actions {
     margin-inline-start: auto;
