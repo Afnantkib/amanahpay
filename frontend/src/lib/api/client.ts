@@ -24,13 +24,29 @@ export const authApi = {
   me: () => request('/v1/auth/me'),
 };
 async function customerRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${base}/api/v1/customer${path}`, { ...init, credentials: 'include', headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}), ...init.headers } });
-  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  let response: Response;
+  try {
+    response = await fetch(`${base}/api/v1/customer${path}`, { ...init, signal: controller.signal, credentials: 'include', headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}), ...init.headers } });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('The request timed out. Check that the service is running, then try again.');
+    throw new Error('Could not reach Amanah Pay. Check that the service is running, then try again.');
+  } finally { window.clearTimeout(timeout); }
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try { const data = await response.json(); message = data.detail || data.message || message; } catch { /* keep status message */ }
+    throw new Error(message);
+  }
   const type = response.headers.get('content-type') || '';
   return (type.includes('application/json') ? response.json() : response.blob()) as Promise<T>;
 }
 export const customerApi = {
-  signupRequest: (fullName: string, email: string, password: string) => customerRequest<{ message: string; email: string }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email, password }) }),
+  signupRequest: async (fullName: string, email: string, password: string) => {
+    const data = await customerRequest<{ message?: string; email?: string; accessToken?: string; expiresIn?: number; account?: { id: number; fullName: string; email: string } }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email, password }) });
+    if (data.accessToken) customerToken = data.accessToken;
+    return data;
+  },
   verifySignup: async (email: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); customerToken = data.accessToken; return data; },
   login: async (email: string, password: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); customerToken = data.accessToken; return data; },
   accountPlans: () => customerRequest<CustomerOffer[]>('/account/plans'),

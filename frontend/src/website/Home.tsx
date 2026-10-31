@@ -63,7 +63,7 @@ export function Home() {
           <p className="hero-body">{t('hero.body')}</p>
           <div className="hero-actions">
             <Link className="button button-primary button-large" to={'/' + lang + '/customer-access'}>
-              Customer log in / sign up
+              Get started
               <ArrowRight size={16} />
             </Link>
             <Link className="hero-link" to={'/' + lang + '/how-it-works'}>

@@ -177,7 +177,7 @@ function SiteLayout() {
               {t('nav.login')}
             </Link>
             <Link className="button button-primary nav-cta" to={langPath(lang, '/customer-access')}>
-              Customer log in / sign up
+              Get started
             </Link>
           </div>
         </div>
@@ -1567,20 +1567,22 @@ function CustomerAccessStart() {
       } else if (signupStep === 'form') {
         if (password !== confirmPassword) throw new Error('Passwords do not match.');
         const result = await customerApi.signupRequest(fullName, email, password);
-        setMaskedEmail(result.email);
+        if (result.accessToken) {
+          navigate(`/${lang}/customer/account`, { replace: true });
+          return;
+        }
+        setMaskedEmail(result.email ?? email);
         setSignupStep('verify');
       } else {
         await customerApi.verifySignup(email, signupCode);
         navigate(`/${lang}/customer/account`, { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error && err.message === 'Passwords do not match.'
-        ? err.message
-        : mode === 'login'
-          ? 'We couldn’t sign you in. Check your email and password, then try again.'
-          : signupStep === 'verify'
-            ? 'That code could not be verified. Check it and try again.'
-            : 'We couldn’t create your account. Check your details and try again.');
+      setError(err instanceof Error ? err.message : mode === 'login'
+        ? 'We couldn’t sign you in. Check your email and password, then try again.'
+        : signupStep === 'verify'
+          ? 'That code could not be verified. Check it and try again.'
+          : 'We couldn’t create your account. Check your details and try again.');
     } finally {
       setBusy(false);
     }

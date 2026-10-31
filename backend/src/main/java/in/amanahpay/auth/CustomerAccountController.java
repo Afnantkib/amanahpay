@@ -61,12 +61,17 @@ public class CustomerAccountController {
 
   @PostMapping("/signup/request")
   @Transactional
-  public Map<String, String> requestSignup(@Valid @RequestBody SignupRequest body, HttpServletRequest request) {
+  public Map<String, Object> requestSignup(@Valid @RequestBody SignupRequest body, HttpServletRequest request) {
     String email = norm(body.email());
     validatePasswordBytes(body.password());
     List<Map<String, Object>> existing = db.queryForList("SELECT id,email_verified_at FROM customer_accounts WHERE email=?", email);
     if (!existing.isEmpty() && existing.getFirst().get("email_verified_at") != null) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "An account already exists. Please log in.");
+      Map<String, Object> account = db.queryForMap("SELECT id,full_name,email,password_hash FROM customer_accounts WHERE email=?", email);
+      if (passwords.matches(body.password(), account.get("password_hash").toString())) {
+        audit("customer_signup_existing_account_login", email, request);
+        return session(((Number) account.get("id")).longValue(), account.get("full_name").toString(), email);
+      }
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "An account already exists for this email. Log in with your password.");
     }
     String passwordHash = passwords.encode(body.password());
     if (existing.isEmpty()) {
