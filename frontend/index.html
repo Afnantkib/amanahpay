@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f7f5" />
+    <meta
+      name="description"
+      content="A calmer way for merchants to offer and track fixed-price installments."
+    />
+    <meta property="og:title" content="Amanah Pay — installments, made clear" />
+    <meta
+      property="og:description"
+      content="Offer a clear payment schedule. Keep every collection in view."
+    />
+    <meta property="og:image" content="/brand/og.svg" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Amanah Pay — installments, made clear</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Amanah Pay",
+        "description": "Merchant tools for clear fixed-price installment tracking."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Does Amanah Pay lend money?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. The merchant sets the sale terms, and the customer pays the merchant directly. Amanah Pay helps record and track the plan."
+            }
+          }
+        ]
+      }
+    </script>
+    <script>
+      try {
+        const saved = localStorage.getItem('amanah-theme');
+        const dark = saved === 'dark';
+        if (dark) document.documentElement.dataset.theme = 'dark';
+      } catch {}
+    </script>
+    <style>
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+      }
+      .boot-screen {
+        min-height: 100vh;
+        display: grid;
+        place-content: center;
+        background: #f6f7f5;
+      }
+      html[data-theme='dark'] .boot-screen {
+        background: #0f1412;
+      }
+      .boot-screen img {
+        display: block;
+        width: 48px;
+        height: 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot-screen"><img src="/brand/symbol.svg" alt="" /></div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:${DB_URL}}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties.mail.smtp.auth: ${MAIL_STARTTLS:false}
+    properties.mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+    properties.mail.smtp.connectiontimeout: 3000
+    properties.mail.smtp.timeout: 3000
+    properties.mail.smtp.writetimeout: 3000
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+amanah:
+  jwt-secret: ${JWT_SECRET}
+  jwt-issuer: ${JWT_ISSUER:amanah-pay}
+  otp-pepper: ${OTP_PEPPER}
+  app-base-url: ${APP_BASE_URL:http://localhost:5173}
+  refresh-days: ${REFRESH_TOKEN_DAYS:14}
+  otp-ttl-minutes: ${OTP_TTL_MINUTES:10}
+  otp-resend-seconds: ${OTP_RESEND_SECONDS:60}
+  bootstrap-email: ${ADMIN_BOOTSTRAP_EMAIL:}

@@ -1,0 +1,71 @@
+import type { CustomerRow, DashboardSummary, MockPlan } from './types';
+const base = import.meta.env.VITE_API_URL || '';
+let accessToken: string | null = null;
+let customerToken: string | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
+export function setAccessToken(token: string | null) { accessToken = token; }
+export function setCustomerToken(token: string | null) { customerToken = token; }
+async function refresh(): Promise<boolean> {
+  if (!refreshInFlight) refreshInFlight = fetch(`${base}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include' }).then(async r => { if (!r.ok) return false; const data = await r.json(); accessToken = data.accessToken; return true; }).catch(() => false).finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
+async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
+  const response = await fetch(`${base}/api${path}`, { ...init, credentials: 'include', headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...init.headers } });
+  if (response.status === 401 && !retried && await refresh()) return request<T>(path, init, true);
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json() as Promise<T>;
+}
+export const authApi = {
+  signup: (email: string, businessName: string) => request<{ message: string }>('/v1/auth/signup/request', { method: 'POST', body: JSON.stringify({ email, businessName }) }),
+  requestLogin: (email: string) => request<{ message: string }>('/v1/auth/login/request', { method: 'POST', body: JSON.stringify({ email }) }),
+  verify: async (email: string, code: string, purpose: 'LOGIN' | 'SIGNUP') => { const data = await request<{ accessToken: string; expiresIn: number; user: unknown }>('/v1/auth/otp/verify', { method: 'POST', body: JSON.stringify({ email, code, purpose }) }); accessToken = data.accessToken; return data; },
+  logout: async () => { try { await request('/v1/auth/logout', { method: 'POST' }); } finally { accessToken = null; } },
+  logoutAll: async () => { try { await request('/v1/auth/logout-all', { method: 'POST' }); } finally { accessToken = null; } },
+  me: () => request('/v1/auth/me'),
+};
+async function customerRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${base}/api/v1/customer${path}`, { ...init, credentials: 'include', headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}), ...init.headers } });
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  const type = response.headers.get('content-type') || '';
+  return (type.includes('application/json') ? response.json() : response.blob()) as Promise<T>;
+}
+export const customerApi = {
+  requestOtp: (token: string) => { customerToken = null; return customerRequest<{ message: string; email: string }>(`/link/${encodeURIComponent(token)}/otp/request`, { method: 'POST' }); },
+  verify: async (token: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; plan: CustomerOffer }>('/otp/verify', { method: 'POST', body: JSON.stringify({ token, code }) }); customerToken = data.accessToken; return data; },
+  plan: () => customerRequest<CustomerOffer>('/plan'),
+  accept: () => customerRequest<{ status: string; agreement: string; plan: CustomerOffer }>('/plan/accept', { method: 'POST' }),
+  reportPayment: (note: string) => customerRequest<{ status: string; message: string }>('/plan/payment-report', { method: 'POST', body: JSON.stringify({ note }) }),
+  agreement: () => customerRequest<Blob>('/plan/agreement'),
+};
+export interface CustomerOffer {
+  id: number;
+  status: string;
+  itemName: string;
+  merchantName: string;
+  totalPricePaise: number;
+  downPaymentPaise: number;
+  installmentCount: number;
+  installments: Array<{ id: number; amount_paise: number; status: string; dueDate: string }>;
+  upiLink: string;
+  agreement?: string;
+}
+export interface CreatedOffer {
+  id: number;
+  customerId: number;
+  itemName: string;
+  totalPricePaise: number;
+  downPaymentPaise: number;
+  installmentCount: number;
+  firstDueDate: string;
+  shareUrl: string;
+  expiresAt: string;
+}
+export interface MerchantSettings { businessName: string; upiId: string; contactPhone: string }
+export const api = {
+  dashboard: () => request<DashboardSummary>('/dashboard'),
+  customers: () => request<CustomerRow[]>('/customers'),
+  plans: () => request<MockPlan[]>('/plans'),
+  createOffer: (offer: { customerName: string; customerEmail: string; phone?: string; itemName: string; totalPricePaise: number; downPaymentPaise: number; installmentCount: number; firstDueDate: string }) => request<CreatedOffer>('/v1/plans', { method: 'POST', body: JSON.stringify(offer) }),
+  merchantSettings: () => request<MerchantSettings>('/v1/merchant/settings'),
+  saveMerchantSettings: (settings: MerchantSettings) => request<MerchantSettings>('/v1/merchant/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+};
