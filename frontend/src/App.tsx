@@ -394,14 +394,14 @@ function Dashboard() {
                 <Area
                   type="monotone"
                   dataKey="collected"
-                  stroke="var(--primary)"
+                  stroke="var(--accent-icon)"
                   strokeWidth={2.5}
                   fill="var(--mint)"
                 />
                 <Area
                   type="monotone"
                   dataKey="pending"
-                  stroke="#9CA7A1"
+                  stroke="var(--upcoming)"
                   strokeWidth={2}
                   fill="none"
                 />
@@ -1392,7 +1392,7 @@ function ReportsPage() {
                 <XAxis dataKey="month" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
                 <Tooltip />
-                <Area dataKey="collected" stroke="var(--primary)" fill="var(--mint)" />
+                <Area dataKey="collected" stroke="var(--accent-icon)" fill="var(--mint)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -1484,7 +1484,7 @@ function OfferQr({ value }: { value: string }) {
       width: 220,
       margin: 2,
       errorCorrectionLevel: 'M',
-      color: { dark: '#17241e', light: '#ffffff' },
+      color: { dark: '#0B1F18', light: '#ffffff' },
     })).then((url) => { if (active) setImage(url); });
     return () => { active = false; };
   }, [value]);

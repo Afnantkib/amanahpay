@@ -48,7 +48,7 @@ export function Home() {
             <path className="splash-arc arc-two" d="M57 32a25 25 0 0 1-25 25" />
             <path className="splash-arc arc-three" d="M32 57A25 25 0 0 1 7 32" />
             <path className="splash-arc arc-four" d="M7 32A25 25 0 0 1 32 7" />
-            <circle cx="54" cy="15" r="3" fill="#B8964A" />
+            <circle cx="54" cy="15" r="8" fill="#0B1F18" />
           </svg>
           <span>amanah pay</span>
         </motion.div>
@@ -225,13 +225,13 @@ export function Home() {
                 <path
                   d="M0 100 C60 85 75 91 120 64 S210 88 270 52 S360 64 420 33 S510 55 600 16"
                   fill="none"
-                  stroke="var(--primary)"
+                  stroke="var(--accent-icon)"
                   strokeWidth="3"
                 />
                 <path
                   d="M0 115 C60 104 75 108 120 92 S210 102 270 84 S360 89 420 73 S510 81 600 60"
                   fill="none"
-                  stroke="#aab5af"
+                  stroke="var(--upcoming)"
                   strokeWidth="2"
                   strokeDasharray="4 5"
                 />
