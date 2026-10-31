@@ -44,6 +44,7 @@ import {
   X,
 } from 'lucide-react';
 import { PhoneMockup } from './components/PhoneMockup';
+import { BrandLockup, BrandSymbol } from './components/BrandLogo';
 import { api, authApi, customerApi } from './lib/api/client';
 import type { CustomerOffer } from './lib/api/client';
 import { illustrativeSchedule } from './lib/api/illustrativeSchedule';
@@ -152,7 +153,7 @@ function SiteLayout() {
       <header className="site-header">
         <div className="nav-inner">
           <Link to={langPath(lang, '/')} className="wordmark">
-            <img src="/brand/lockup.svg" alt="Amanah Pay" />
+            <BrandLockup />
           </Link>
           <button
             className="mobile-menu icon-button"
@@ -225,7 +226,7 @@ function Footer() {
       <div className="footer-inner">
         <div className="footer-brand">
           <Link to={langPath(lang, '/')} className="wordmark">
-            <img src="/brand/lockup.svg" alt="Amanah Pay" />
+            <BrandLockup />
           </Link>
           <p>{t('tagline')}</p>
         </div>
@@ -537,7 +538,7 @@ function MerchantLayout() {
     <div className={`app-layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <aside className="app-sidebar">
         <Link className="app-logo" to={'/' + lang + '/app'}>
-          <img src="/brand/symbol.svg" alt="" />
+          <BrandSymbol />
           <span>amanah pay</span>
         </Link>
         <button className="merchant-switch">
@@ -1545,7 +1546,7 @@ function CustomerAccessStart() {
   return (
     <div className="auth-wrap">
       <section className="panel auth-card customer-access-card">
-        <span className="auth-symbol"><img src="/brand/symbol.svg" alt="" /></span>
+        <span className="auth-symbol"><BrandSymbol /></span>
         <span className="eyebrow">CUSTOMER ACCOUNT</span>
         <h1>Scan to sign in to your plan</h1>
         <p className="muted-paragraph">
@@ -1614,7 +1615,7 @@ function CustomerPortal() {
   return (
     <div className="customer-portal">
       <div className="portal-brand">
-        <img src="/brand/lockup.svg" alt="Amanah Pay" />
+        <BrandLockup />
       </div>
       <div className="portal-card panel">
         {view === 'loading' ? (
@@ -2072,7 +2073,7 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
         onSubmit={submit}
       >
         <span className="auth-symbol">
-          <img src="/brand/symbol.svg" alt="" />
+          <BrandSymbol />
         </span>
         <span className="eyebrow">MERCHANT ACCOUNT</span>
         <h1>

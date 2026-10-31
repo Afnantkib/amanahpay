@@ -1647,7 +1647,7 @@ select {
   animation: arc-draw 0.32s ease-out forwards;
 }
 .arc-one {
-  stroke: var(--accent-icon);
+  stroke: var(--primary);
   animation-delay: 0s;
 }
 .arc-two {
@@ -3777,6 +3777,12 @@ html[data-adviser-badge='false'] .verify-badge {
   display: none;
 }
 
-html[data-theme='dark'] img[src*='/brand/'] {
-  filter: brightness(0) invert(1);
+.theme-dark-brand {
+  display: none !important;
+}
+html[data-theme='dark'] .theme-light-brand {
+  display: none !important;
+}
+html[data-theme='dark'] .theme-dark-brand {
+  display: block !important;
 }

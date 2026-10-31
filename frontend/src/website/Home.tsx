@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { PhoneMockup } from '../components/PhoneMockup';
+import { BrandSymbol } from '../components/BrandLogo';
 import { inr } from '../lib/format';
 
 export function Home() {
@@ -48,7 +49,7 @@ export function Home() {
             <path className="splash-arc arc-two" d="M57 32a25 25 0 0 1-25 25" />
             <path className="splash-arc arc-three" d="M32 57A25 25 0 0 1 7 32" />
             <path className="splash-arc arc-four" d="M7 32A25 25 0 0 1 32 7" />
-            <circle cx="54" cy="15" r="8" fill="#0B1F18" />
+            <circle cx="54" cy="15" r="8" fill="var(--accent-icon)" />
           </svg>
           <span>amanah pay</span>
         </motion.div>
@@ -188,7 +189,7 @@ export function Home() {
         </div>
         <div className="dashboard-preview panel">
           <div className="preview-side">
-            <img src="/brand/symbol.svg" alt="" />
+            <BrandSymbol />
             <span>amanah pay</span>
             <small>OVERVIEW</small>
             <small>CUSTOMERS</small>
