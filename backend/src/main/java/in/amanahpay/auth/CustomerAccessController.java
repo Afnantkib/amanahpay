@@ -77,6 +77,23 @@ public class CustomerAccessController {
     return ids.stream().map(this::plan).toList();
   }
 
+  @GetMapping("/account/offers/{token}")
+  public Map<String,Object> accountOffer(@PathVariable String token,HttpServletRequest request) {
+    LinkInfo link=validLink(token);
+    authorizedAccountPlan(link.planId,request);
+    return plan(link.planId);
+  }
+
+  @GetMapping("/account/plans/{planId}/agreement")
+  public ResponseEntity<byte[]> accountAgreement(@PathVariable long planId,HttpServletRequest request) {
+    authorizedAccountPlan(planId,request);
+    Map<String,Object> offer=plan(planId);
+    String text=Objects.toString(offer.get("agreement"),agreementText(offer));
+    return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN)
+        .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=amanah-plan-agreement.txt")
+        .body(text.getBytes(StandardCharsets.UTF_8));
+  }
+
   @PostMapping("/account/plans/{planId}/accept") @Transactional
   public Map<String,Object> acceptAccountPlan(@PathVariable long planId,HttpServletRequest request) {
     long customerId = authorizedAccountPlan(planId,request);

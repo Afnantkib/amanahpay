@@ -21,8 +21,9 @@ export function Home() {
   const reduced = useReducedMotion();
   const [splash, setSplash] = useState(false);
   const lang = location.pathname.split('/')[1] || 'en';
+  const dateLocale = lang === 'ur' ? 'ur-IN' : 'en-IN';
   useEffect(() => {
-    document.title = 'Amanah Pay — installments, made clear';
+    document.title = `Amanah Pay — ${t('tagline')}`;
     let shown = false;
     try {
       shown = sessionStorage.getItem('amanah-splash') === '1';
@@ -34,7 +35,7 @@ export function Home() {
     } catch {
       // Storage may be unavailable; render the page without the optional splash.
     }
-  }, [reduced]);
+  }, [reduced, t]);
   return (
     <>
       {splash && (
@@ -63,7 +64,7 @@ export function Home() {
           <p className="hero-body">{t('hero.body')}</p>
           <div className="hero-actions">
             <Link className="button button-primary button-large" to={'/' + lang + '/customer-access'}>
-              Get started
+              {t('nav.getStarted')}
               <ArrowRight size={16} />
             </Link>
             <Link className="hero-link" to={'/' + lang + '/how-it-works'}>
@@ -75,14 +76,14 @@ export function Home() {
             <span className="note-check">
               <Check size={12} />
             </span>
-            Scan your merchant’s QR to get started · email verification, no password needed
+            {t('home.heroNote')}
           </div>
         </div>
         <div className="hero-visual">
           <PhoneMockup />
         </div>
         <div className="hero-bottom-cue">
-          <span>Scroll to explore</span>
+          <span>{t('home.scroll')}</span>
           <ChevronDown size={15} />
         </div>
       </section>
@@ -93,17 +94,17 @@ export function Home() {
         </div>
         <div>
           <ShieldCheck size={17} />
-          <span>Pay the merchant directly</span>
+          <span>{t('home.payDirect')}</span>
         </div>
         <div>
           <LockKeyhole size={17} />
-          <span>Full schedule before you agree</span>
+          <span>{t('home.scheduleUpfront')}</span>
         </div>
         <span className="verify-badge">{t('labels.verify')}</span>
       </section>
       <section className="home-section how-section public-page">
         <div className="section-heading">
-          <span className="eyebrow">HOW IT WORKS</span>
+          <span className="eyebrow">{t('home.howEyebrow')}</span>
           <h2>{t('sections.how')}</h2>
           <p>{t('sections.howBody')}</p>
         </div>
@@ -126,19 +127,16 @@ export function Home() {
           ))}
         </div>
         <Link className="inline-link" to={'/' + lang + '/how-it-works'}>
-          Explore the steps <ArrowRight size={15} />
+          {t('home.exploreSteps')} <ArrowRight size={15} />
         </Link>
       </section>
       <section className="calculator-teaser">
         <div className="teaser-copy">
-          <span className="eyebrow">A LITTLE MORE CLARITY</span>
-          <h2>See what a clear schedule looks like.</h2>
-          <p>
-            Choose a fixed price and payment dates. Get a simple example you can understand at a
-            glance.
-          </p>
+          <span className="eyebrow">{t('home.clarityEyebrow')}</span>
+          <h2>{t('home.calculatorTitle')}</h2>
+          <p>{t('home.calculatorBody')}</p>
           <Link className="button button-outline" to={'/' + lang + '/calculator'}>
-            Try the illustrative calculator <ArrowRight size={15} />
+            {t('home.calculatorButton')} <ArrowRight size={15} />
           </Link>
         </div>
         <div className="teaser-card panel">
@@ -146,12 +144,12 @@ export function Home() {
             <span className="merchant-avatar">S</span>
             <span>
               <b>Sunday Home</b>
-              <small>Dining table set</small>
+              <small>{t('home.sampleItem')}</small>
             </span>
             <span className="tag-chip">{t('labels.illustrative')}</span>
           </div>
           <div className="teaser-price">
-            <small>Fixed total price</small>
+            <small>{t('home.fixedTotal')}</small>
             <strong>{inr(1600000)}</strong>
           </div>
           <div className="teaser-schedule">
@@ -160,21 +158,21 @@ export function Home() {
                 <Check size={10} />
               </span>
               <span>
-                Today <small>Down payment</small>
+                {t('home.today')} <small>{t('home.downPayment')}</small>
               </span>
               <b>{inr(400000)}</b>
             </div>
             <div>
               <span className="timeline-dot is-due" />
               <span>
-                30 Nov <small>Installment 1</small>
+                {new Intl.DateTimeFormat(dateLocale, { day: 'numeric', month: 'short' }).format(new Date(2026, 10, 30))} <small>{t('home.installment', { number: 1 })}</small>
               </span>
               <b>{inr(400000)}</b>
             </div>
             <div>
               <span className="timeline-dot is-upcoming" />
               <span>
-                30 Dec <small>Installment 2</small>
+                {new Intl.DateTimeFormat(dateLocale, { day: 'numeric', month: 'short' }).format(new Date(2026, 11, 30))} <small>{t('home.installment', { number: 2 })}</small>
               </span>
               <b>{inr(400000)}</b>
             </div>
@@ -183,26 +181,26 @@ export function Home() {
       </section>
       <section className="dashboard-preview-section public-page">
         <div className="section-heading align-start">
-          <span className="eyebrow">MADE FOR MERCHANTS</span>
+          <span className="eyebrow">{t('home.madeForMerchants')}</span>
           <h2>{t('sections.dashboard')}</h2>
-          <p>Today’s priorities and the bigger picture, together.</p>
+          <p>{t('home.dashboardBody')}</p>
         </div>
         <div className="dashboard-preview panel">
           <div className="preview-side">
             <BrandSymbol />
             <span>amanah pay</span>
-            <small>OVERVIEW</small>
-            <small>CUSTOMERS</small>
-            <small>PLANS</small>
-            <small>COLLECTIONS</small>
-            <small>REPORTS</small>
+            <small>{t('home.overview')}</small>
+            <small>{t('home.customers')}</small>
+            <small>{t('home.plans')}</small>
+            <small>{t('home.collections')}</small>
+            <small>{t('home.reports')}</small>
           </div>
           <div className="preview-main">
             <div className="preview-top">
               <span>
-                Overview <small>Sunday Home · October 2026</small>
+                {t('home.overview')} <small>Sunday Home · {t('home.sampleMonth')} 2026</small>
               </span>
-              <button className="button button-primary button-small">+ New plan</button>
+              <button className="button button-primary button-small">{t('home.newPlan')}</button>
             </div>
             <div className="preview-stats">
               {[
@@ -213,16 +211,16 @@ export function Home() {
                 <div key={label}>
                   <small>{label}</small>
                   <b>{value}</b>
-                  <span>From active plans</span>
+                  <span>{t('home.fromActive')}</span>
                 </div>
               ))}
             </div>
             <div className="preview-graph">
               <div className="graph-title">
-                <span>Collections</span>
-                <small>Last 5 months</small>
+                <span>{t('labels.collections')}</span>
+                <small>{t('home.lastMonths')}</small>
               </div>
-              <svg viewBox="0 0 600 130" preserveAspectRatio="none" aria-label="Collections chart">
+              <svg viewBox="0 0 600 130" preserveAspectRatio="none" aria-label={t('labels.collections')}>
                 <path
                   d="M0 100 C60 85 75 91 120 64 S210 88 270 52 S360 64 420 33 S510 55 600 16"
                   fill="none"
@@ -243,7 +241,7 @@ export function Home() {
       </section>
       <section className="why-section">
         <div className="why-left">
-          <span className="eyebrow">CLEAR BY DESIGN</span>
+          <span className="eyebrow">{t('home.clearByDesign')}</span>
           <h2>{t('sections.why')}</h2>
           <p>{t('sections.whyBody')}</p>
           <Link className="inline-link" to={'/' + lang + '/approach'}>
@@ -255,19 +253,19 @@ export function Home() {
           {[
             [
               CircleCheck,
-              'A fixed total, agreed up front',
-              'Everyone can see the same payment schedule.',
+              t('home.fixedAgreed'),
+              t('home.sameSchedule'),
             ],
-            [ShieldCheck, 'You stay in control', 'The merchant decides who to offer a plan to.'],
+            [ShieldCheck, t('home.control'), t('home.merchantDecides')],
             [
               LockKeyhole,
-              'The merchant receives payment',
-              'Customer payments go to your chosen merchant account.',
+              t('home.merchantReceives'),
+              t('home.chosenAccount'),
             ],
             [
               Sparkles,
-              'Simple, considerate tracking',
-              'A calm place for records, reminders and receipts.',
+              t('home.simpleTracking'),
+              t('home.calmPlace'),
             ],
           ].map(([Icon, title, body]) => {
             const Symbol = Icon as typeof CircleCheck;
@@ -287,28 +285,25 @@ export function Home() {
       </section>
       <section className="pricing-teaser public-page">
         <div>
-          <span className="eyebrow">PRICING THAT STAYS CLEAR</span>
+          <span className="eyebrow">{t('home.pricingEyebrow')}</span>
           <h2>{t('sections.pricing')}</h2>
           <p>{t('sections.pricingBody')}</p>
           <Link className="button button-primary" to={'/' + lang + '/pricing'}>
-            See merchant pricing <ArrowRight size={15} />
+            {t('home.seePricing')} <ArrowRight size={15} />
           </Link>
         </div>
         <div className="pricing-mini panel">
           <span className="pricing-icon">
             <Check size={18} />
           </span>
-          <h3>Merchant-paid</h3>
-          <p>
-            Platform fees are billed to your business. They never appear as an added fee on a
-            customer's plan.
-          </p>
+          <h3>{t('home.merchantPaid')}</h3>
+          <p>{t('home.feesBody')}</p>
           <span className="verify-badge">{t('labels.verify')}</span>
         </div>
       </section>
       <section className="faq-teaser public-page">
         <div className="section-heading">
-          <span className="eyebrow">GOOD TO KNOW</span>
+          <span className="eyebrow">{t('home.goodToKnow')}</span>
           <h2>{t('sections.faq')}</h2>
         </div>
         <details className="home-faq">
@@ -320,22 +315,21 @@ export function Home() {
         </details>
         <details className="home-faq">
           <summary>
-            Who receives the customer payments?
+            {t('home.whoReceives')}
             <PlusIcon />
           </summary>
           <p>
-            Customers pay the merchant directly using the merchant’s UPI details or a gateway that
-            settles to the merchant.
+            {t('home.whoReceivesBody')}
           </p>
         </details>
         <Link className="inline-link" to={'/' + lang + '/faq'}>
-          Visit the help centre <ArrowRight size={15} />
+          {t('home.visitHelp')} <ArrowRight size={15} />
         </Link>
       </section>
       <section className="final-cta">
-        <span className="eyebrow">FOR MERCHANTS</span>
-        <h2>Offer clear installments to your customers.</h2>
-        <p>Give customers a fixed price and a schedule they can understand.</p>
+        <span className="eyebrow">{t('home.forMerchants')}</span>
+        <h2>{t('home.finalTitle')}</h2>
+        <p>{t('home.finalBody')}</p>
         <Link className="button button-light button-large" to={'/' + lang + '/signup'}>
           {t('nav.start')}
           <ArrowRight size={16} />

@@ -1,0 +1,62 @@
+substitutions:
+  _REGION: asia-south1
+  _AR_REPOSITORY: amanahpay
+  _SERVICE_NAME: amanahpay-backend
+  _DEPLOY_TO_RUN: 'false'
+  _FRONTEND_ORIGIN: SET_ME_TO_HTTPS_FRONTEND_ORIGIN
+  _MAIL_FROM: afnan@ghpcl.com
+  _MAIL_HOST: smtp-relay.brevo.com
+  _MAIL_PORT: '587'
+  _VPC_CONNECTOR: ''
+  _RUN_SERVICE_ACCOUNT: ''
+  _DB_URL_SECRET: amanah-db-url:1
+  _DB_USER_SECRET: amanah-db-user:1
+  _DB_PASSWORD_SECRET: amanah-db-password:1
+  _JWT_SECRET: amanah-jwt-secret:1
+  _OTP_PEPPER: amanah-otp-pepper:1
+  _MAIL_USERNAME_SECRET: amanah-mail-username:1
+  _MAIL_PASSWORD_SECRET: amanah-mail-password:1
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=backend/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-backend:$BUILD_ID
+      - backend
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-backend:$BUILD_ID
+
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if [ "${_DEPLOY_TO_RUN}" != "true" ]; then
+          echo 'Cloud Run deployment skipped. Set _DEPLOY_TO_RUN=true after configuring the required values.'
+          exit 0
+        fi
+        case "${_FRONTEND_ORIGIN}" in https://*) ;; *) echo '_FRONTEND_ORIGIN must be the deployed frontend HTTPS origin.' >&2; exit 1 ;; esac
+        case "${_MAIL_FROM}" in *@*.*) ;; *) echo '_MAIL_FROM must be a verified sender address.' >&2; exit 1 ;; esac
+        deploy_args=()
+        if [ -n "${_VPC_CONNECTOR}" ]; then
+          deploy_args+=(--vpc-connector="${_VPC_CONNECTOR}" --vpc-egress=private-ranges-only)
+        fi
+        if [ -n "${_RUN_SERVICE_ACCOUNT}" ]; then
+          deploy_args+=(--service-account="${_RUN_SERVICE_ACCOUNT}")
+        fi
+        gcloud run deploy "${_SERVICE_NAME}" \
+          --image="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-backend:$BUILD_ID" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --port=8080 \
+          --allow-unauthenticated \
+          --update-env-vars="SPRING_PROFILES_ACTIVE=prod,MAIL_HOST=${_MAIL_HOST},MAIL_PORT=${_MAIL_PORT},MAIL_STARTTLS=true,MAIL_FROM=${_MAIL_FROM},APP_BASE_URL=${_FRONTEND_ORIGIN},CORS_ORIGINS=${_FRONTEND_ORIGIN}" \
+          --update-secrets="DB_URL=${_DB_URL_SECRET},DB_USER=${_DB_USER_SECRET},DB_PASSWORD=${_DB_PASSWORD_SECRET},JWT_SECRET=${_JWT_SECRET},OTP_PEPPER=${_OTP_PEPPER},MAIL_USERNAME=${_MAIL_USERNAME_SECRET},MAIL_PASSWORD=${_MAIL_PASSWORD_SECRET}" \
+          "${deploy_args[@]}"
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-backend:$BUILD_ID

@@ -34,24 +34,31 @@ async function customerRequest<T>(path: string, init: RequestInit = {}): Promise
     throw new Error('Could not reach Amanah Pay. Check that the service is running, then try again.');
   } finally { window.clearTimeout(timeout); }
   if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try { const data = await response.json(); message = data.detail || data.message || message; } catch { /* keep status message */ }
+    let message = response.status === 429
+      ? (path.includes('/verify')
+          ? 'Too many verification attempts. Please wait before trying again.'
+          : 'Too many code requests. Please wait up to an hour before requesting another code.')
+      : `Request failed (${response.status})`;
+    try {
+      const data = await response.json();
+      message = data.detail || data.message || data.title || message;
+    } catch { /* Keep the status-specific fallback when the response has no JSON body. */ }
     throw new Error(message);
   }
   const type = response.headers.get('content-type') || '';
   return (type.includes('application/json') ? response.json() : response.blob()) as Promise<T>;
 }
 export const customerApi = {
-  signupRequest: async (fullName: string, email: string, password: string) => {
-    const data = await customerRequest<{ message?: string; email?: string; accessToken?: string; expiresIn?: number; account?: { id: number; fullName: string; email: string } }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email, password }) });
-    if (data.accessToken) customerToken = data.accessToken;
-    return data;
-  },
+  hasCustomerSession: () => Boolean(customerToken),
+  signupRequest: (fullName: string, email: string) => customerRequest<{ message: string; email: string }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email }) }),
   verifySignup: async (email: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); customerToken = data.accessToken; return data; },
-  login: async (email: string, password: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); customerToken = data.accessToken; return data; },
+  requestLogin: (email: string) => customerRequest<{ message: string; email: string }>('/auth/login/request', { method: 'POST', body: JSON.stringify({ email }) }),
+  verifyLogin: async (email: string, code: string, fullName?: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login/verify', { method: 'POST', body: JSON.stringify({ email, code, fullName }) }); customerToken = data.accessToken; return data; },
   accountPlans: () => customerRequest<CustomerOffer[]>('/account/plans'),
+  accountOffer: (token: string) => customerRequest<CustomerOffer>(`/account/offers/${encodeURIComponent(token)}`),
   acceptAccountPlan: (planId: number) => customerRequest<{ status: string; plan: CustomerOffer }>(`/account/plans/${planId}/accept`, { method: 'POST' }),
   reportAccountPayment: (planId: number, note: string) => customerRequest<{ status: string; message: string }>(`/account/plans/${planId}/payment-report`, { method: 'POST', body: JSON.stringify({ note }) }),
+  accountAgreement: (planId: number) => customerRequest<Blob>(`/account/plans/${planId}/agreement`),
   logout: () => { customerToken = null; },
   requestOtp: (token: string) => { customerToken = null; return customerRequest<{ message: string; email: string }>(`/link/${encodeURIComponent(token)}/otp/request`, { method: 'POST' }); },
   verify: async (token: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; plan: CustomerOffer }>('/otp/verify', { method: 'POST', body: JSON.stringify({ token, code }) }); customerToken = data.accessToken; return data; },

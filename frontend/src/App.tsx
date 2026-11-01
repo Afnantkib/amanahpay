@@ -63,7 +63,7 @@ function useLang() {
 export function App() {
   const location = useLocation();
   const lang = location.pathname.split('/')[1] === 'ur' ? 'ur' : 'en';
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   useEffect(() => {
     const rtl = lang === 'ur';
     document.documentElement.lang = lang;
@@ -77,7 +77,7 @@ export function App() {
     const meta = document.querySelector('meta[name="description"]');
     meta?.setAttribute(
       'content',
-      'A calmer way for Indian merchants to offer and track clear fixed-price payment plans.',
+      t('hero.body'),
     );
     for (const locale of ['en', 'ur']) {
       let alternate = document.querySelector<HTMLLinkElement>(`link[hreflang="${locale}"]`);
@@ -112,6 +112,7 @@ export function App() {
 function ThemeLanguage() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const lang = useLang();
   const [dark, setDark] = useState(document.documentElement.dataset.theme === 'dark');
   const toggleTheme = () => {
@@ -126,7 +127,7 @@ function ThemeLanguage() {
     parts[1] = next;
     await i18n.changeLanguage(next);
     localStorage.setItem('amanah-lang', next);
-    window.location.assign(`${parts.join('/')}${location.search}`);
+    navigate(`${parts.join('/')}${location.search}${location.hash}`);
   };
   return (
     <div className="icon-tools">
@@ -177,7 +178,7 @@ function SiteLayout() {
               {t('nav.login')}
             </Link>
             <Link className="button button-primary nav-cta" to={langPath(lang, '/customer-access')}>
-              Get started
+              {t('nav.getStarted')}
             </Link>
           </div>
         </div>
@@ -198,6 +199,7 @@ function SiteLayout() {
             <Route path="login" element={<AuthPage />} />
             <Route path="signup" element={<AuthPage signup />} />
             <Route path="customer/account" element={<CustomerAccount />} />
+            <Route path="customer/open-offer" element={<CustomerOfferOpen />} />
             <Route path="app" element={<MerchantLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="overview" element={<Dashboard />} />
@@ -235,29 +237,29 @@ function Footer() {
           <p>{t('tagline')}</p>
         </div>
         <div>
-          <h4>Product</h4>
+          <h4>{t('content.product')}</h4>
           <Link to={langPath(lang, '/how-it-works')}>{t('nav.how')}</Link>
           <Link to={langPath(lang, '/merchants')}>{t('nav.merchants')}</Link>
           <Link to={langPath(lang, '/pricing')}>{t('nav.pricing')}</Link>
           <Link to={langPath(lang, '/calculator')}>{t('labels.calculator')}</Link>
         </div>
         <div>
-          <h4>Company</h4>
-          <Link to={langPath(lang, '/about')}>About</Link>
+          <h4>{t('content.company')}</h4>
+          <Link to={langPath(lang, '/about')}>{t('content.about')}</Link>
           <Link to={langPath(lang, '/contact')}>{t('nav.contact')}</Link>
           <Link to={langPath(lang, '/faq')}>{t('nav.faq')}</Link>
         </div>
         <div>
-          <h4>Information</h4>
+          <h4>{t('content.information')}</h4>
           <Link to={langPath(lang, '/legal/terms')}>{t('labels.terms')}</Link>
           <Link to={langPath(lang, '/legal/privacy')}>{t('labels.privacy')}</Link>
-          <Link to={langPath(lang, '/legal/dpdp')}>DPDP notice</Link>
+          <Link to={langPath(lang, '/legal/dpdp')}>{t('content.dpdp')}</Link>
           <Link to={langPath(lang, '/legal/grievance')}>{t('labels.grievance')}</Link>
         </div>
       </div>
       <div className="footer-bottom">
         <span>© 2026 Amanah Pay</span>
-        <span>India · INR · UPI</span>
+        <span>{t('content.regional')}</span>
         <span>LinkedIn · Instagram</span>
       </div>
     </footer>
@@ -307,19 +309,19 @@ function Dashboard() {
       ] as const)
     : [];
   const chart = [
-    { month: 'Jun', collected: 48, pending: 24 },
-    { month: 'Jul', collected: 56, pending: 31 },
-    { month: 'Aug', collected: 42, pending: 37 },
-    { month: 'Sep', collected: 72, pending: 36 },
-    { month: 'Oct', collected: 64, pending: 42 },
+    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 5, 1)), collected: 48, pending: 24 },
+    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 6, 1)), collected: 56, pending: 31 },
+    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 7, 1)), collected: 42, pending: 37 },
+    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 8, 1)), collected: 72, pending: 36 },
+    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 9, 1)), collected: 64, pending: 42 },
   ];
   if (isError)
     return (
       <div className="error-state">
         <CircleHelp />
-        <h2>Couldn't load this view</h2>
+        <h2>{t('workspace.loadError')}</h2>
         <button className="button button-outline" onClick={() => void refetch()}>
-          Try again
+          {t('workspace.tryAgain')}
         </button>
       </div>
     );
@@ -347,7 +349,7 @@ function Dashboard() {
           <div className={`stat-card stat-${tone} ${isLoading ? 'skeleton' : ''}`} key={label + i}>
             <span>{label}</span>
             <strong>{inr(value)}</strong>
-            <small>{i === 0 ? '+12.8% from last month' : 'Across active plans'}</small>
+            <small>{i === 0 ? t('home.monthlyChange', { value: '+12.8%' }) : t('workspace.activePlansCaption')}</small>
           </div>
         ))}
       </div>
@@ -356,7 +358,7 @@ function Dashboard() {
           <div className="panel-heading">
             <div>
               <h2>{t('labels.collected')}</h2>
-              <p>Collection trend · last 5 months</p>
+              <p>{t('workspace.trend')}</p>
             </div>
             <button className="select-button">
               {t('labels.month')} <ChevronDown size={14} />
@@ -365,11 +367,11 @@ function Dashboard() {
           <div className="chart-legend">
             <span>
               <i className="legend-dot green" />
-              Collected
+              {t('workspace.collected')}
             </span>
             <span>
               <i className="legend-dot gray" />
-              Pending
+              {t('workspace.pending')}
             </span>
           </div>
           <div className="chart-wrap">
@@ -418,7 +420,7 @@ function Dashboard() {
           <div className="panel-heading">
             <div>
               <h2>{t('labels.dueToday')}</h2>
-              <p>31 October 2026</p>
+              <p>{t('workspace.todayDate')}</p>
             </div>
             <Link className="text-link" to={'/' + lang + '/app/collections'}>
               {t('labels.viewAll')}
@@ -436,7 +438,7 @@ function Dashboard() {
               <span className="due-main">
                 <b>{row.customer}</b>
                 <small>
-                  {row.item} · {shortDate(row.due)}
+                  {row.item} · {shortDate(row.due, lang === 'ur' ? 'ur-IN' : 'en-IN')}
                 </small>
               </span>
               <span className="due-amount">
@@ -447,7 +449,7 @@ function Dashboard() {
           ))}
           <button
             className="button button-soft full-width"
-            onClick={() => window.alert('Reminder queued in demo mode')}
+            onClick={() => window.alert(t('workspace.remindersReady'))}
           >
             {' '}
             <Bell size={15} />
@@ -459,9 +461,9 @@ function Dashboard() {
         <div className="panel-heading">
           <div>
             <h2>{t('labels.recent')}</h2>
-            <p>Latest activity across your plans</p>
+            <p>{t('workspace.latestActivity')}</p>
           </div>
-          <button className="icon-button" aria-label="More">
+          <button className="icon-button" aria-label={t('workspace.more')}>
             <MoreHorizontal />
           </button>
         </div>
@@ -470,8 +472,8 @@ function Dashboard() {
             <Check size={16} />
           </span>
           <span>
-            <b>Payment recorded</b>
-            <small>Ayesha Khan · 2 minutes ago</small>
+            <b>{t('workspace.paymentRecorded')}</b>
+            <small>Ayesha Khan · {t('workspace.minutesAgo', { count: 2 })}</small>
           </span>
           <strong>+{inr(400000)}</strong>
         </div>
@@ -480,8 +482,8 @@ function Dashboard() {
             <FileText size={16} />
           </span>
           <span>
-            <b>New plan accepted</b>
-            <small>Vikram Shah · 1 hour ago</small>
+            <b>{t('workspace.planAccepted')}</b>
+            <small>Vikram Shah · {t('workspace.hourAgo')}</small>
           </span>
           <strong>{inr(1200000)}</strong>
         </div>
@@ -517,6 +519,12 @@ function MerchantLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [palette, setPalette] = useState(false);
   const merchant = (session.data || {}) as { email?: string; businessName?: string; role?: string };
+  const routePart = window.location.pathname.split('/').filter(Boolean).at(-1) || 'overview';
+  const breadcrumbTitle = routePart === 'new'
+    ? t('labels.createPlan')
+    : /^\d+$/.test(routePart)
+      ? t('workspace.customerProfile')
+      : t(`labels.${routePart === 'app' ? 'overview' : routePart}`);
   const nav = [
     ['overview', t('labels.overview'), LayoutDashboard],
     ['customers', t('labels.customers'), Users],
@@ -548,12 +556,12 @@ function MerchantLayout() {
         <button className="merchant-switch">
           <span className="merchant-avatar">S</span>
           <span>
-            <b>{merchant.businessName || 'Merchant workspace'}</b>
-            <small>Merchant workspace</small>
+            <b>{merchant.businessName || t('workspace.merchantWorkspace')}</b>
+            <small>{t('workspace.merchantWorkspace')}</small>
           </span>
           <ChevronDown size={15} />
         </button>
-        <div className="side-label">WORKSPACE</div>
+        <div className="side-label">{t('workspace.workspace')}</div>
         <nav className="side-nav">
           {nav.map(([path, label, Icon]) => (
             <NavLink key={path} to={'/' + lang + '/app/' + path} end={path === 'overview'}>
@@ -567,10 +575,10 @@ function MerchantLayout() {
             <span className="help-icon">
               <CircleHelp size={17} />
             </span>
-            <b>Need a hand?</b>
-            <small>Visit the help centre</small>
+            <b>{t('workspace.needHelp')}</b>
+            <small>{t('workspace.helpCentre')}</small>
           </div>
-        <button className="user-row" title="Sign out" onClick={() => void authApi.logout().finally(() => window.location.assign('/' + lang + '/login'))}>
+        <button className="user-row" title={t('labels.logout')} onClick={() => void authApi.logout().finally(() => window.location.assign('/' + lang + '/login'))}>
             <span className="avatar">AM</span>
             <span>
               <b>{merchant.email || 'Merchant account'}</b>
@@ -582,7 +590,7 @@ function MerchantLayout() {
         <button
           className="collapse-button"
           onClick={() => setCollapsed(!collapsed)}
-          aria-label="Collapse navigation"
+          aria-label={t('workspace.collapseNav')}
         >
           <ChevronLeft size={16} />
         </button>
@@ -590,13 +598,13 @@ function MerchantLayout() {
       <div className="app-main">
         <header className="app-topbar">
           <div className="topbar-left">
-            <button className="icon-button mobile-menu" aria-label="Open menu">
+            <button className="icon-button mobile-menu" aria-label={t('workspace.openNav')}>
               <Menu size={19} />
             </button>
             <div className="breadcrumbs">
-              <span>Sunday Home</span>
+              <span>{merchant.businessName || t('workspace.merchantWorkspace')}</span>
               <ChevronRight size={13} />
-              <b>{locationTitle()}</b>
+              <b>{breadcrumbTitle}</b>
             </div>
           </div>
           <div className="topbar-right">
@@ -608,7 +616,7 @@ function MerchantLayout() {
               </kbd>
             </button>
             <ThemeLanguage />
-            <button className="icon-button notification-button" aria-label="Notifications">
+            <button className="icon-button notification-button" aria-label={t('workspace.notifications')}>
               <Bell size={17} />
               <i />
             </button>
@@ -634,9 +642,9 @@ function MerchantLayout() {
           <div className="command-modal" onClick={(e) => e.stopPropagation()}>
             <div className="command-input">
               <Search size={18} />
-              <input autoFocus placeholder="Search pages, customers, plans..." />
+              <input autoFocus placeholder={t('workspace.searchPages')} />
               <kbd>ESC</kbd>
-              <button className="icon-button" onClick={() => setPalette(false)} aria-label="Close">
+              <button className="icon-button" onClick={() => setPalette(false)} aria-label={t('labels.close')}>
                 <X size={16} />
               </button>
             </div>
@@ -658,15 +666,6 @@ function MerchantLayout() {
     </div>
   );
 }
-function locationTitle() {
-  const part = window.location.pathname.split('/').filter(Boolean).at(-1) || 'overview';
-  return part === 'app'
-    ? 'Overview'
-    : part === 'new'
-      ? 'Create a plan'
-      : part.charAt(0).toUpperCase() + part.slice(1);
-}
-
 function DataPage({
   type,
 }: {
@@ -707,7 +706,7 @@ function DataPage({
     type === 'customers' ? (
       <button
         className="button button-primary"
-        onClick={() => setToast('Add customer flow is ready for API connection')}
+        onClick={() => setToast(t('workspace.customerReady'))}
       >
         <Plus size={16} />
         {t('labels.newCustomer')}
@@ -720,7 +719,7 @@ function DataPage({
     ) : type === 'payments' ? (
       <button
         className="button button-primary"
-        onClick={() => setToast('Payment recording dialog will be available with the payments API')}
+        onClick={() => setToast(t('workspace.paymentDialogReady'))}
       >
         <Plus size={16} />
         {t('labels.markReceived')}
@@ -728,7 +727,7 @@ function DataPage({
     ) : (
       <button
         className="button button-outline"
-        onClick={() => setToast('Reminders queued in demo mode')}
+        onClick={() => setToast(t('workspace.remindersReady'))}
       >
         <Bell size={15} />
         {t('labels.sendReminder')}
@@ -747,7 +746,7 @@ function DataPage({
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
-            <button className="icon-button" onClick={() => setQuery('')} aria-label="Clear search">
+            <button className="icon-button" onClick={() => setQuery('')} aria-label={t('workspace.clearSearch')}>
               <X size={14} />
             </button>
           )}
@@ -776,7 +775,7 @@ function DataPage({
         </div>
         <button
           className="icon-button export-button"
-          onClick={() => setToast('CSV export prepared in demo mode')}
+          onClick={() => setToast(t('workspace.exportReady'))}
           aria-label={t('labels.export')}
         >
           <Download size={16} />
@@ -823,15 +822,15 @@ function DataPage({
                       <td>
                         <b>{inr(c.pendingPaise)}</b>
                       </td>
-                      <td>{shortDate(c.nextDue)}</td>
+                      <td>{shortDate(c.nextDue, lang === 'ur' ? 'ur-IN' : 'en-IN')}</td>
                       <td>
                         <Status status={c.status} />
                       </td>
                       <td>
                         <button
                           className="icon-button"
-                          aria-label={`More actions for ${c.name}`}
-                          onClick={() => setToast(`Actions for ${c.name}`)}
+                          aria-label={t('workspace.moreActions', { name: c.name })}
+                          onClick={() => setToast(t('workspace.actionsFor', { name: c.name }))}
                         >
                           <MoreHorizontal size={17} />
                         </button>
@@ -847,7 +846,7 @@ function DataPage({
           <table>
             <thead>
               <tr>
-                <th>Plan</th>
+                <th>{t('labels.plans')}</th>
                 <th>{t('labels.customer')}</th>
                 <th>{t('labels.total')}</th>
                 <th>{t('labels.pendingAmount')}</th>
@@ -885,12 +884,12 @@ function DataPage({
                       <td>
                         <b>{inr(p.remainingPaise)}</b>
                       </td>
-                      <td>{shortDate(p.nextDue)}</td>
+                      <td>{shortDate(p.nextDue, lang === 'ur' ? 'ur-IN' : 'en-IN')}</td>
                       <td>
                         <Status status={p.status} />
                       </td>
                       <td>
-                        <button className="icon-button" aria-label="Plan actions">
+                        <button className="icon-button" aria-label={t('workspace.planActions')}>
                           <MoreHorizontal size={17} />
                         </button>
                       </td>
@@ -903,13 +902,13 @@ function DataPage({
       {type === 'collections' && (
         <div className="aging-grid">
           {[
-            ['1–7 days', '₹ 12,400'],
-            ['8–30 days', '₹ 5,200'],
-            ['31–60 days', '₹ 2,100'],
-            ['60+ days', '₹ 0'],
+            [t('workspace.days1to7'), '₹ 12,400'],
+            [t('workspace.days8to30'), '₹ 5,200'],
+            [t('workspace.days31to60'), '₹ 2,100'],
+            [t('workspace.days60plus'), '₹ 0'],
           ].map(([x, y]) => (
             <div className="aging-card" key={x}>
-              <small>Overdue · {x}</small>
+              <small>{t('labels.overdue')} · {x}</small>
               <b>{y}</b>
             </div>
           ))}
@@ -940,11 +939,12 @@ function Empty() {
   );
 }
 function Toast({ text, close }: { text: string; close: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="toast" role="status">
       <Check size={16} />
       {text}
-      <button onClick={close} aria-label="Close">
+      <button onClick={close} aria-label={t('labels.close')}>
         <X size={15} />
       </button>
     </div>
@@ -967,7 +967,7 @@ function CustomerDetail() {
       <div className="customer-profile panel">
         <span className="avatar avatar-large">{initials(customer.name)}</span>
         <div className="customer-profile-main">
-          <span className="eyebrow">CUSTOMER PROFILE</span>
+          <span className="eyebrow">{t('workspace.customerProfile')}</span>
           <h1>{customer.name}</h1>
           <p>
             {customer.phone} · <Status status={customer.status} />
@@ -988,17 +988,17 @@ function CustomerDetail() {
         <div className="stat-card">
           <span>{t('labels.activePlans')}</span>
           <strong>{customer.activePlans}</strong>
-          <small>Currently active</small>
+          <small>{t('workspace.currentlyActive')}</small>
         </div>
         <div className="stat-card stat-paid">
           <span>{t('labels.paidAmount')}</span>
           <strong>{inr(customer.paidPaise)}</strong>
-          <small>Across all plans</small>
+          <small>{t('workspace.acrossPlans')}</small>
         </div>
         <div className="stat-card">
           <span>{t('labels.pendingAmount')}</span>
           <strong>{inr(customer.pendingPaise)}</strong>
-          <small>Next due {shortDate(customer.nextDue)}</small>
+          <small>{t('workspace.nextDue', { date: shortDate(customer.nextDue, lang === 'ur' ? 'ur-IN' : 'en-IN') })}</small>
         </div>
       </div>
       <div className="profile-detail-grid">
@@ -1006,7 +1006,7 @@ function CustomerDetail() {
           <div className="panel-heading">
             <div>
               <h2>{t('labels.plans')}</h2>
-              <p>Plans and payment progress</p>
+              <p>{t('workspace.plansProgress')}</p>
             </div>
             <button className="icon-button">
               <MoreHorizontal />
@@ -1018,8 +1018,8 @@ function CustomerDetail() {
                 <FileText size={17} />
               </span>
               <span>
-                <b>Dining table set</b>
-                <small>Started 01 Aug 2026</small>
+                <b>{t('home.sampleItem')}</b>
+                <small>{t('workspace.started', { date: lang === 'ur' ? '1 اگست 2026' : '01 Aug 2026' })}</small>
               </span>
               <Status status={customer.status} />
             </div>
@@ -1028,10 +1028,10 @@ function CustomerDetail() {
             </div>
             <div className="plan-detail-bottom">
               <span>
-                Paid <b>{inr(customer.paidPaise)}</b>
+                {t('workspace.paid')} <b>{inr(customer.paidPaise)}</b>
               </span>
               <span>
-                Remaining <b>{inr(customer.pendingPaise)}</b>
+                {t('workspace.remaining')} <b>{inr(customer.pendingPaise)}</b>
               </span>
             </div>
           </div>
@@ -1042,9 +1042,9 @@ function CustomerDetail() {
                 {i < 2 ? <Check size={10} /> : <Circle size={8} />}
               </span>
               <span>
-                <b>Installment {i + 1}</b>
+                  <b>{t('home.installment', { number: i + 1 })}</b>
                 <small>
-                  {shortDate(['2026-08-08', '2026-09-08', '2026-10-08', '2026-11-08'][i])}
+                  {shortDate(['2026-08-08', '2026-09-08', '2026-10-08', '2026-11-08'][i], lang === 'ur' ? 'ur-IN' : 'en-IN')}
                 </small>
               </span>
               <strong>{inr(400000)}</strong>
@@ -1055,22 +1055,22 @@ function CustomerDetail() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <h2>Customer notes</h2>
-              <p>Private to your team</p>
+          <h2>{t('workspace.customerNotes')}</h2>
+              <p>{t('workspace.privateTeam')}</p>
             </div>
             <button
               className="button button-small button-outline"
-              onClick={() => window.alert('Note editor in connected release')}
+              onClick={() => window.alert(t('workspace.noteEditor'))}
             >
-              Add note
+              {t('workspace.addNote')}
             </button>
           </div>
           <div className="note-card">
-            <span className="tag-chip">Known customer</span>
-            <p>Prefers a reminder a few days before the due date.</p>
-            <small>Added by Aman Merchant · 12 Sep</small>
+            <span className="tag-chip">{t('workspace.knownCustomer')}</span>
+            <p>{t('workspace.reminderPreference')}</p>
+            <small>{t('workspace.addedBy')}</small>
           </div>
-          <div className="panel-subheading">Recent payments</div>
+          <div className="panel-subheading">{t('workspace.recentPayments')}</div>
           {[0, 1].map((i) => (
             <div className="activity-row" key={i}>
               <span className="activity-icon">
@@ -1083,8 +1083,8 @@ function CustomerDetail() {
               <Status status="Paid" />
             </div>
           ))}
-          <div className="panel-subheading">Reminder history</div>
-          <p className="muted-paragraph">Last reminder sent 3 days before the due date.</p>
+          <div className="panel-subheading">{t('workspace.reminderHistory')}</div>
+          <p className="muted-paragraph">{t('workspace.lastReminder')}</p>
         </section>
       </div>
     </div>
@@ -1123,9 +1123,9 @@ function PlanWizard() {
         <ArrowLeft size={15} />
         {t('labels.plans')}
       </Link>
-      <PageHeading eyebrow="STEP-BY-STEP" title={t('labels.createPlan')} />
+      <PageHeading eyebrow={t('content.threeSteps')} title={t('labels.createPlan')} />
       <div className="wizard-steps">
-        {['Customer', 'Terms', 'Review & share'].map((label, i) => (
+        {[t('wizard.stepCustomer'), t('wizard.stepTerms'), t('wizard.stepReview')].map((label, i) => (
           <div className={i === step ? 'current' : i < step ? 'complete' : ''} key={label}>
             <span>{i < step ? <Check size={13} /> : i + 1}</span>
             {label}
@@ -1134,27 +1134,27 @@ function PlanWizard() {
       </div>
       <div className="wizard-layout">
         <section className="panel wizard-form">
-          <h2>{['Choose a customer', 'Set the payment terms', 'Review the plan'][step]}</h2>
+          <h2>{[t('wizard.chooseCustomer'), t('wizard.setTerms'), t('wizard.reviewPlan')][step]}</h2>
           <p className="muted-paragraph">
             {
               [
-                'Pick an existing customer or add someone new.',
-                'Set one fixed total and choose a payment schedule.',
-                'Check the schedule before sharing the offer.',
+                t('wizard.chooseCustomerBody'),
+                t('wizard.setTermsBody'),
+                t('wizard.reviewPlanBody'),
               ][step]
             }
           </p>
           {step === 0 ? (
             <>
-              <label className="field"><span>Customer name</span><input autoComplete="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></label>
-              <label className="field"><span>Customer email for the secure offer link</span><input type="email" autoComplete="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} required /></label>
-              <label className="field"><span>Phone (optional)</span><input type="tel" autoComplete="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></label>
+              <label className="field"><span>{t('labels.customerName')}</span><input autoComplete="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required /></label>
+              <label className="field"><span>{t('wizard.customerEmailLabel')}</span><input type="email" autoComplete="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} required /></label>
+              <label className="field"><span>{t('wizard.phoneOptional')}</span><input type="tel" autoComplete="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></label>
             </>
           ) : step === 1 ? (
             <div className="form-grid">
               <label className="field full-field">
                 <span>{t('labels.item')}</span>
-                <input value={itemName} onChange={(e) => setItemName(e.target.value)} required placeholder="e.g. Dining table set" />
+                <input value={itemName} onChange={(e) => setItemName(e.target.value)} required placeholder={t('wizard.itemPlaceholder')} />
               </label>
               <label className="field">
                 <span>{t('labels.price')} (₹)</span>
@@ -1172,7 +1172,7 @@ function PlanWizard() {
                 <span>{t('labels.months')}</span>
                 <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
                   {[2, 3, 4, 6, 9, 12, 18, 24].map((n) => (
-                    <option key={n}>{n}</option>
+                    <option key={n} value={n}>{t('calculator.monthsOption', { count: n })}</option>
                   ))}
                 </select>
               </label>
@@ -1182,7 +1182,7 @@ function PlanWizard() {
               </label>
               <div className="fixed-price-note">
                 <ShieldCheck size={16} />
-                <span>Fixed price, agreed upfront. No interest is added by Amanah Pay.</span>
+                <span>{t('wizard.fixedNote')}</span>
               </div>
             </div>
           ) : (
@@ -1190,7 +1190,7 @@ function PlanWizard() {
               <div className="review-summary">
                 <span>{t('labels.customer')}</span>
                 <b>{customerName || 'Customer'}</b>
-                <span>Email</span>
+                <span>{t('merchantAuth.email')}</span>
                 <b>{customerEmail || '—'}</b>
                 <span>{t('labels.item')}</span>
                 <b>{itemName || '—'}</b>
@@ -1200,8 +1200,8 @@ function PlanWizard() {
                 <b>{inr(Number(down || 0) * 100)}</b>
               </div>
               <label className="field">
-                <span>Share offer with customer</span>
-                {offerLink ? <><OfferQr value={offerLink} /><input readOnly value={offerLink} aria-label="Secure customer offer link" /><div className="share-row"><button className="button button-outline" onClick={() => void navigator.clipboard.writeText(offerLink).then(() => setToast('Secure offer link copied'))}>Copy link</button><a className="button button-outline" href={`https://wa.me/?text=${encodeURIComponent(`Your Amanah Pay offer: ${offerLink}`)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a></div><small>QR and link expire in 7 days. Customer verifies their email before viewing the offer.</small></> : <p className="muted-paragraph">Create the plan to generate its private QR and share link.</p>}
+                {t('wizard.shareOffer')}
+                {offerLink ? <><OfferQr value={offerLink} /><input readOnly value={offerLink} aria-label={t('customer.offerLink')} /><div className="share-row"><button className="button button-outline" onClick={() => void navigator.clipboard.writeText(offerLink).then(() => setToast(t('wizard.copied')))}>{t('wizard.copyLink')}</button><a className="button button-outline" href={`https://wa.me/?text=${encodeURIComponent(t('wizard.shareText', { offerLink }))}`} target="_blank" rel="noreferrer">{t('wizard.shareWhatsApp')}</a></div><small>{t('wizard.linkExpiry')}</small></> : <p className="muted-paragraph">{t('wizard.createPlanFirst')}</p>}
               </label>
             </>
           )}
@@ -1220,12 +1220,12 @@ function PlanWizard() {
                 setFormError('');
                 if (step < 2) { setStep(step + 1); return; }
                 setSaving(true);
-                try { const offer = await api.createOffer({ customerName, customerEmail, phone: customerPhone || undefined, itemName, totalPricePaise: Math.round(Number(price) * 100), downPaymentPaise: Math.round(Number(down) * 100), installmentCount: count, firstDueDate: first }); setOfferLink(offer.shareUrl); void navigator.clipboard?.writeText(offer.shareUrl).then(() => setToast('Secure customer link created and copied')); }
-                catch { setFormError('Could not create the plan. Check the details and try again.'); }
+                try { const offer = await api.createOffer({ customerName, customerEmail, phone: customerPhone || undefined, itemName, totalPricePaise: Math.round(Number(price) * 100), downPaymentPaise: Math.round(Number(down) * 100), installmentCount: count, firstDueDate: first }); setOfferLink(offer.shareUrl); void navigator.clipboard?.writeText(offer.shareUrl).then(() => setToast(t('wizard.createdCopied'))); }
+                catch { setFormError(t('wizard.createError')); }
                 finally { setSaving(false); }
               }}
             >
-              {saving ? 'Creating…' : offerLink ? 'Link ready' : step < 2 ? t('labels.continue') : 'Create and share'}
+              {saving ? t('wizard.creating') : offerLink ? t('wizard.linkReady') : step < 2 ? t('labels.continue') : t('wizard.createShare')}
               <ArrowRight size={15} />
             </button>
           </div>
@@ -1235,7 +1235,7 @@ function PlanWizard() {
           <div className="preview-total">
             <small>{t('labels.total')}</small>
             <strong>{inr(Number(price || 0) * 100)}</strong>
-            <p>Includes {inr(Number(down || 0) * 100)} today</p>
+            <p>{t('wizard.includesToday', { amount: inr(Number(down || 0) * 100) })}</p>
           </div>
           <h3>{t('labels.schedule')}</h3>
           {schedule.map((row) => (
@@ -1244,14 +1244,14 @@ function PlanWizard() {
                 <Circle size={8} />
               </span>
               <span>
-                <b>Installment {row.number}</b>
-                <small>{shortDate(row.date)}</small>
+                <b>{t('home.installment', { number: row.number })}</b>
+                <small>{shortDate(row.date, lang === 'ur' ? 'ur-IN' : 'en-IN')}</small>
               </span>
               <strong>{inr(row.amountPaise)}</strong>
             </div>
           ))}
           <small className="preview-caption">
-            Illustrative only · confirm final schedule with the server before sending
+            {t('calculator.illustrativeOnly')}
           </small>
         </aside>
       </div>
@@ -1262,7 +1262,7 @@ function PlanWizard() {
 
 function SettingsPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState('Business profile');
+  const [tab, setTab] = useState('businessProfile');
   const settingsQuery = useQuery({ queryKey: ['merchant-settings'], queryFn: api.merchantSettings });
   const [businessName, setBusinessName] = useState('');
   const [upiId, setUpiId] = useState('');
@@ -1272,19 +1272,19 @@ function SettingsPage() {
   useEffect(() => { if (settingsQuery.data) { setBusinessName(settingsQuery.data.businessName); setUpiId(settingsQuery.data.upiId); setContactPhone(settingsQuery.data.contactPhone); } }, [settingsQuery.data]);
   return (
     <div className="dashboard-page">
-      <PageHeading eyebrow="MERCHANT ACCOUNT" title={t('labels.settings')} />
+      <PageHeading eyebrow={t('merchantAuth.eyebrow')} title={t('labels.settings')} />
       <div className="settings-tabs">
         {[
-          'Business profile',
-          'Payments',
-          'Late-fee policy',
-          'Reminders',
-          'Staff & roles',
-          'Language',
-          'Data & privacy',
+          ['businessProfile', 'workspace.businessProfile'],
+          ['payments', 'labels.payments'],
+          ['lateFeePolicy', 'workspace.lateFeePolicy'],
+          ['reminders', 'workspace.reminders'],
+          ['staffRoles', 'workspace.staffRoles'],
+          ['language', 'labels.language'],
+          ['dataPrivacy', 'workspace.dataPrivacy'],
         ].map((x) => (
-          <button className={tab === x ? 'active' : ''} onClick={() => setTab(x)} key={x}>
-            {x}
+          <button className={tab === x[0] ? 'active' : ''} onClick={() => setTab(x[0])} key={x[0]}>
+            {t(x[1])}
           </button>
         ))}
       </div>
@@ -1292,39 +1292,39 @@ function SettingsPage() {
         <div className="panel-heading">
           <div>
             <h2>{tab}</h2>
-            <p>Manage your merchant workspace preferences</p>
+            <p>{t('workspace.settingsDescription')}</p>
           </div>
         </div>
-        {tab === 'Business profile' ? (
+        {tab === 'businessProfile' ? (
           <div className="form-grid">
             <label className="field">
-              <span>Business name</span>
+              <span>{t('workspace.businessName')}</span>
               <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
             </label>
             <label className="field">
               <span>
-                GSTIN <small>Optional</small>
+                {t('workspace.gstin')} <small>{t('workspace.optional')}</small>
               </span>
-              <input placeholder="Enter GSTIN" />
+              <input placeholder={t('workspace.enterGstin')} />
             </label>
             <label className="field">
-              <span>UPI VPA</span>
+                <span>{t('workspace.upiVpa')}</span>
               <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="business@bank" />
             </label>
             <label className="field">
-              <span>Contact number</span>
+              <span>{t('workspace.contactNumber')}</span>
               <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
             </label>
-            {settingsQuery.isLoading && <p className="muted-paragraph">Loading business details…</p>}
-            {settingsQuery.isError && <p role="alert" className="muted-paragraph">Could not load merchant settings.</p>}
-            <button className="button button-primary" disabled={savingSettings || settingsQuery.isLoading} onClick={async () => { setSavingSettings(true); setSettingsMessage(''); try { const saved = await api.saveMerchantSettings({ businessName, upiId, contactPhone }); setBusinessName(saved.businessName); setUpiId(saved.upiId); setContactPhone(saved.contactPhone); setSettingsMessage('Business details saved.'); } catch { setSettingsMessage('Could not save these details. Check the UPI ID and try again.'); } finally { setSavingSettings(false); } }}>{savingSettings ? 'Saving…' : `${t('labels.save')} changes`}</button>
+            {settingsQuery.isLoading && <p className="muted-paragraph">{t('workspace.loadingBusiness')}</p>}
+            {settingsQuery.isError && <p role="alert" className="muted-paragraph">{t('workspace.settingsLoadError')}</p>}
+            <button className="button button-primary" disabled={savingSettings || settingsQuery.isLoading} onClick={async () => { setSavingSettings(true); setSettingsMessage(''); try { const saved = await api.saveMerchantSettings({ businessName, upiId, contactPhone }); setBusinessName(saved.businessName); setUpiId(saved.upiId); setContactPhone(saved.contactPhone); setSettingsMessage(t('workspace.settingsSaved')); } catch { setSettingsMessage(t('workspace.settingsSaveError')); } finally { setSavingSettings(false); } }}>{savingSettings ? t('workspace.saving') : t('workspace.saveButton')}</button>
             {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
           </div>
-        ) : tab === 'Late-fee policy' ? (
+        ) : tab === 'lateFeePolicy' ? (
           <div className="policy-card">
             <div>
-              <b>Late fees are off</b>
-              <p>Any late-payment terms must be disclosed before the customer accepts a plan.</p>
+              <b>{t('workspace.lateFeesOff')}</b>
+              <p>{t('workspace.lateDisclosure')}</p>
             </div>
             <label className="switch">
               <input type="checkbox" />
@@ -1335,7 +1335,7 @@ function SettingsPage() {
         ) : (
           <div className="settings-placeholder">
             <ShieldCheck size={20} />
-            <span>These controls are ready to connect to the merchant settings API.</span>
+            <span>{t('workspace.settingsApiReady')}</span>
           </div>
         )}
       </section>
@@ -1359,27 +1359,27 @@ function ReportsPage() {
       />
       <div className="stat-grid three-stats">
         <div className="stat-card stat-paid">
-          <span>Collected · October</span>
+          <span>{t('workspace.collectedOctober')}</span>
           <strong>{inr(12450000)}</strong>
-          <small>From 42 payments</small>
+          <small>{t('workspace.fromPayments', { count: 42 })}</small>
         </div>
         <div className="stat-card">
-          <span>Pending total</span>
+          <span>{t('workspace.pendingTotal')}</span>
           <strong>{inr(8630000)}</strong>
-          <small>Across 19 active plans</small>
+          <small>{t('workspace.acrossPlansCount', { count: 19 })}</small>
         </div>
         <div className="stat-card stat-overdue">
-          <span>Overdue total</span>
+          <span>{t('workspace.overdueTotal')}</span>
           <strong>{inr(2140000)}</strong>
-          <small>Across 7 customers</small>
+          <small>{t('workspace.acrossCustomers', { count: 7 })}</small>
         </div>
       </div>
       <div className="dashboard-grid">
         <section className="panel chart-panel">
           <div className="panel-heading">
             <div>
-              <h2>Collections by month</h2>
-              <p>Collected vs pending totals</p>
+              <h2>{t('workspace.collectionsByMonth')}</h2>
+              <p>{t('workspace.collectedVsPending')}</p>
             </div>
           </div>
           <div className="chart-wrap">
@@ -1403,12 +1403,12 @@ function ReportsPage() {
           </div>
         </section>
         <section className="panel">
-          <h2>Plan completion</h2>
+          <h2>{t('workspace.planCompletion')}</h2>
           <div className="completion-number">76%</div>
           <div className="progress-track">
             <span style={{ width: '76%' }} />
           </div>
-          <p className="muted-paragraph">Plans completed on their agreed schedule</p>
+          <p className="muted-paragraph">{t('workspace.completedSchedule')}</p>
         </section>
       </div>
     </div>
@@ -1419,29 +1419,29 @@ function AdminPage() {
   const { t } = useTranslation();
   return (
     <div className="public-page admin-page">
-      <PageHeading eyebrow="PLATFORM ADMIN" title="Merchant operations" />
+      <PageHeading eyebrow={t('admin.eyebrow')} title={t('admin.title')} />
       <div className="stat-grid three-stats">
         <div className="stat-card">
-          <span>Active merchants</span>
+          <span>{t('admin.activeMerchants')}</span>
           <strong>128</strong>
-          <small>+9 this month</small>
+          <small>+{t('admin.thisMonth', { count: 9 })}</small>
         </div>
         <div className="stat-card">
-          <span>Plans tracked</span>
+          <span>{t('admin.plansTracked')}</span>
           <strong>4,820</strong>
-          <small>Across all merchants</small>
+          <small>{t('admin.allMerchants')}</small>
         </div>
         <div className="stat-card">
-          <span>Platform fees</span>
+          <span>{t('admin.platformFees')}</span>
           <strong>{inr(3860000)}</strong>
-          <small>Merchant billed</small>
+          <small>{t('admin.merchantBilled')}</small>
         </div>
       </div>
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Merchants</h2>
-            <p>Manage access and review account activity</p>
+            <h2>{t('admin.merchants')}</h2>
+            <p>{t('admin.manage')}</p>
           </div>
           <div className="search-field">
             <Search size={15} />
@@ -1451,11 +1451,11 @@ function AdminPage() {
         <table>
           <thead>
             <tr>
-              <th>Business</th>
-              <th>Plans</th>
-              <th>Fee status</th>
-              <th>Account</th>
-              <th>Action</th>
+              <th>{t('admin.business')}</th>
+              <th>{t('admin.plans')}</th>
+              <th>{t('admin.feeStatus')}</th>
+              <th>{t('admin.account')}</th>
+              <th>{t('admin.action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -1468,9 +1468,9 @@ function AdminPage() {
                 <td>
                   <Status status="On track" />
                 </td>
-                <td>Active</td>
+                <td>{t('admin.active')}</td>
                 <td>
-                  <button className="button button-small button-outline">View account</button>
+                  <button className="button button-small button-outline">{t('admin.viewAccount')}</button>
                 </td>
               </tr>
             ))}
@@ -1482,6 +1482,7 @@ function AdminPage() {
 }
 
 function OfferQr({ value, purpose = 'offer' }: { value: string; purpose?: 'offer' | 'payment' }) {
+  const { t } = useTranslation();
   const [image, setImage] = useState('');
   useEffect(() => {
     let active = true;
@@ -1495,28 +1496,29 @@ function OfferQr({ value, purpose = 'offer' }: { value: string; purpose?: 'offer
   }, [value]);
   return (
     <div className="offer-qr">
-      {image ? <img src={image} alt={purpose === 'payment' ? 'UPI payment QR code for the merchant' : 'Secure QR code for the customer offer'} /> : <span className="muted-paragraph">Preparing secure QR…</span>}
-      <small>{purpose === 'payment' ? 'Scan with a UPI app to pay the merchant' : 'Customer scans this with their phone camera'}</small>
+      {image ? <img src={image} alt={t(purpose === 'payment' ? 'qr.paymentAlt' : 'qr.offerAlt')} /> : <span className="muted-paragraph">{t('qr.preparing')}</span>}
+      <small>{t(purpose === 'payment' ? 'qr.paymentHint' : 'qr.offerHint')}</small>
     </div>
   );
 }
 
 function CustomerAccessStart() {
   const lang = useLang();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<{ stop: () => void } | null>(null);
   const [offerLink, setOfferLink] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [scanning, setScanning] = useState(false);
   const [mode, setMode] = useState<'choose' | 'login' | 'signup'>('choose');
-  const [signupStep, setSignupStep] = useState<'form' | 'verify'>('form');
+  const [authStep, setAuthStep] = useState<'details' | 'verify'>('details');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [signupCode, setSignupCode] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
+  const [needsFullName, setNeedsFullName] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => () => scannerRef.current?.stop(), []);
@@ -1526,7 +1528,7 @@ function CustomerAccessStart() {
     const rawToken = /^[A-Za-z0-9_-]{20,}$/.test(value.trim()) ? value.trim() : undefined;
     const token = pathToken || rawToken;
     if (!token) {
-      setError('That QR code does not look like an Amanah Pay offer. Scan your merchant’s plan QR or paste its link below.');
+      setError(t('access.invalidQr'));
       return;
     }
     scannerRef.current?.stop();
@@ -1552,37 +1554,62 @@ function CustomerAccessStart() {
       });
     } catch {
       setScanning(false);
-      setError('Camera access is unavailable. Allow camera permission or paste your secure plan link instead.');
+      setError(t('access.cameraDenied'));
     }
   }
 
   async function submitCustomerAccount(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setNotice('');
     setBusy(true);
     try {
-      if (mode === 'login') {
-        await customerApi.login(email, password);
-        navigate(`/${lang}/customer/account`, { replace: true });
-      } else if (signupStep === 'form') {
-        if (password !== confirmPassword) throw new Error('Passwords do not match.');
-        const result = await customerApi.signupRequest(fullName, email, password);
-        if (result.accessToken) {
-          navigate(`/${lang}/customer/account`, { replace: true });
-          return;
-        }
+      if (authStep === 'details') {
+        const result = mode === 'login'
+          ? await customerApi.requestLogin(email)
+          : await customerApi.signupRequest(fullName, email);
         setMaskedEmail(result.email ?? email);
-        setSignupStep('verify');
+        setAuthStep('verify');
+        setNotice('Check your inbox and spam folder for the one-time code.');
       } else {
-        await customerApi.verifySignup(email, signupCode);
+        if (mode === 'login') await customerApi.verifyLogin(email, signupCode, needsFullName ? fullName : undefined);
+        else await customerApi.verifySignup(email, signupCode);
         navigate(`/${lang}/customer/account`, { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : mode === 'login'
-        ? 'We couldn’t sign you in. Check your email and password, then try again.'
-        : signupStep === 'verify'
-          ? 'That code could not be verified. Check it and try again.'
-          : 'We couldn’t create your account. Check your details and try again.');
+      if (mode === 'login' && authStep === 'verify' && err instanceof Error &&
+          (err.message.toLowerCase().includes('full name') || err.message.includes('(409)'))) {
+        setNeedsFullName(true);
+        setError(t('access.addName'));
+        return;
+      }
+      const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
+      setError(errorMessage.includes('429') || errorMessage.includes('too many')
+        ? t('access.rateLimit')
+        : authStep === 'verify'
+          ? t('access.verifyFailed')
+          : mode === 'login'
+            ? t('access.startFailed')
+            : t('access.createFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resendCustomerCode() {
+    setError('');
+    setNotice('');
+    setBusy(true);
+    try {
+      const result = mode === 'login'
+        ? await customerApi.requestLogin(email)
+        : await customerApi.signupRequest(fullName, email);
+      setMaskedEmail(result.email ?? email);
+      setSignupCode('');
+      setNotice('Check your inbox and spam folder for the one-time code.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message.toLowerCase() : '';
+      setError(errorMessage.includes('429') || errorMessage.includes('too many') ? t('access.rateLimit') : t('access.resendFailed'));
     } finally {
       setBusy(false);
     }
@@ -1594,67 +1621,70 @@ function CustomerAccessStart() {
         <span className="auth-symbol"><BrandSymbol /></span>
         {mode === 'choose' ? (
           <>
-            <span className="eyebrow">CUSTOMER ACCOUNT</span>
-            <h1>Welcome to Amanah Pay</h1>
-            <p className="muted-paragraph">Sign in with your email and password, or create a new account with email verification.</p>
+            <span className="eyebrow">{t('customer.accountEyebrow')}</span>
+            <h1>{t('access.welcome')}</h1>
+            <p className="muted-paragraph">{t('access.welcomeBody')}</p>
             <div className="customer-access-choice-actions">
-              <button className="button button-primary full-width" type="button" onClick={() => setMode('login')}>Log in <ArrowRight size={15} /></button>
-              <button className="button button-outline full-width" type="button" onClick={() => setMode('signup')}>Sign up <ArrowRight size={15} /></button>
+              <button className="button button-primary full-width" type="button" onClick={() => { setMode('login'); setAuthStep('details'); setNeedsFullName(false); setError(''); }}>{t('access.loginChoice')} <ArrowRight size={15} /></button>
+              <button className="button button-outline full-width" type="button" onClick={() => { setMode('signup'); setAuthStep('details'); setNeedsFullName(false); setError(''); }}>{t('access.createChoice')} <ArrowRight size={15} /></button>
             </div>
             <div className="customer-access-note">
-              <b>New to Amanah Pay?</b>
-              <span>Create your account here, then see any plans a merchant shares with you.</span>
+              <b>{t('access.newHere')}</b>
+              <span>{t('access.createHere')}</span>
             </div>
           </>
         ) : (
           <>
-            <button className="text-link customer-access-back" type="button" onClick={() => { setMode('choose'); setError(''); }}>← Back</button>
-            <span className="eyebrow">{mode === 'login' ? 'CUSTOMER LOGIN' : 'CUSTOMER SIGN UP'}</span>
-            <h1>{mode === 'login' ? 'Log in to Amanah Pay' : signupStep === 'verify' ? 'Verify your email' : 'Create your account'}</h1>
+            <button className="text-link customer-access-back" type="button" onClick={() => { setMode('choose'); setAuthStep('details'); setNeedsFullName(false); setError(''); }}>← {t('access.back')}</button>
+            <span className="eyebrow">{t(mode === 'login' ? 'access.loginEyebrow' : 'access.signupEyebrow')}</span>
+            <h1>{authStep === 'verify' ? t('access.verifyTitle') : t(mode === 'login' ? 'access.loginTitle' : 'access.signupTitle')}</h1>
             <p className="muted-paragraph">
-              {mode === 'login'
-                ? 'Enter your email and password to see your customer plans.'
-                : signupStep === 'verify'
-                  ? `Enter the six-digit code sent to ${maskedEmail}.`
-                  : 'Add your details and choose a password. We’ll email you a code to verify your account.'}
+              {authStep === 'verify'
+                ? t('access.verifyInstruction', { email: maskedEmail })
+                : mode === 'login'
+                  ? t('access.loginBody')
+                  : t('access.signupBody')}
             </p>
             <form onSubmit={submitCustomerAccount}>
-              {mode === 'signup' && signupStep === 'form' && (
-                <label className="field"><span>Full name</span><input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={180} /></label>
+              {mode === 'signup' && authStep === 'details' && (
+                <label className="field"><span>{t('access.fullName')}</span><input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={180} /></label>
               )}
-              {signupStep === 'verify' ? (
-                <label className="field"><span>Email verification code</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={signupCode} onChange={(e) => setSignupCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
-              ) : (
+              {authStep === 'verify' ? (
                 <>
-                  <label className="field"><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} /></label>
-                  <label className="field"><span>Password</span><input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'signup' ? 12 : undefined} maxLength={64} /></label>
-                  {mode === 'signup' && <label className="field"><span>Confirm password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} maxLength={64} /></label>}
+                  <label className="field"><span>{t(mode === 'login' ? 'access.loginCode' : 'access.signupCode')}</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={signupCode} onChange={(e) => setSignupCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
+                  {mode === 'login' && needsFullName && <label className="field"><span>{t('access.fullName')}</span><input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={180} /></label>}
                 </>
+              ) : (
+                <label className="field"><span>{t('access.email')}</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} /></label>
               )}
               {error && <p role="alert" className="muted-paragraph">{error}</p>}
+              {notice && <p role="status" className="muted-paragraph">{t('access.checkInbox')}</p>}
               <button className="button button-primary full-width" type="submit" disabled={busy}>
-                {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : signupStep === 'verify' ? 'Verify and create account' : 'Create account'} <ArrowRight size={15} />
+                {busy ? t('access.wait') : authStep === 'verify' ? mode === 'login' ? needsFullName ? t('access.completeAccount') : t('access.verifyContinue') : t('access.verifyCreate') : mode === 'login' ? t('access.sendLoginCode') : t('access.sendSignupCode')} <ArrowRight size={15} />
               </button>
             </form>
-            {mode === 'signup' && signupStep === 'form' && <small className="muted-paragraph">Use at least 12 characters for your password.</small>}
+            {authStep === 'verify' && <button className="text-link" type="button" onClick={() => void resendCustomerCode()} disabled={busy}>{t('access.resend')}</button>}
+            <button className="text-link" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setAuthStep('details'); setNeedsFullName(false); setError(''); }}>
+              {t(mode === 'login' ? 'access.switchSignup' : 'access.switchLogin')}
+            </button>
             <details className="customer-link-fallback">
-              <summary>Have a merchant offer QR or link?</summary>
-              <p className="muted-paragraph">Open and verify your offer directly without creating a password account.</p>
+              <summary>{t('access.offerFallback')}</summary>
+              <p className="muted-paragraph">{t('access.offerFallbackBody')}</p>
               <button className="button button-outline full-width" type="button" onClick={() => void startScan()} disabled={scanning}>
-                {scanning ? 'Point your camera at the QR…' : 'Scan offer QR'} <ArrowRight size={15} />
+                {scanning ? t('access.cameraScanning') : t('access.scanOffer')} <ArrowRight size={15} />
               </button>
               <div className={`customer-qr-scanner${scanning ? ' is-active' : ''}`}>
                 <video ref={videoRef} muted playsInline />
-                {scanning && <button className="text-link" type="button" onClick={() => { scannerRef.current?.stop(); scannerRef.current = null; setScanning(false); }}>Stop camera</button>}
+                {scanning && <button className="text-link" type="button" onClick={() => { scannerRef.current?.stop(); scannerRef.current = null; setScanning(false); }}>{t('customer.stopCamera')}</button>}
               </div>
               <form onSubmit={continueToOffer}>
-                <label className="field"><span>Secure plan link</span><input autoComplete="url" inputMode="url" placeholder="Paste the link from your merchant" value={offerLink} onChange={(e) => { setOfferLink(e.target.value); setError(''); }} required /></label>
-                <button className="button button-outline full-width" type="submit">Continue with link <ArrowRight size={15} /></button>
+                <label className="field"><span>{t('access.securePlanLink')}</span><input autoComplete="url" inputMode="url" placeholder={t('access.pasteMerchantLink')} value={offerLink} onChange={(e) => { setOfferLink(e.target.value); setError(''); }} required /></label>
+                <button className="button button-outline full-width" type="submit">{t('access.continueLink')} <ArrowRight size={15} /></button>
               </form>
             </details>
           </>
         )}
-        <Link className="text-link" to={`/${lang}/merchants`}>I’m a merchant</Link>
+        <Link className="text-link" to={`/${lang}/merchants`}>{t('access.merchantLink')}</Link>
       </section>
     </div>
   );
@@ -1662,6 +1692,7 @@ function CustomerAccessStart() {
 
 function CustomerAccount() {
   const lang = useLang();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState<Record<number, boolean>>({});
   const [showQr, setShowQr] = useState<Record<number, boolean>>({});
@@ -1675,7 +1706,7 @@ function CustomerAccount() {
     setBusyPlan(planId);
     setError('');
     try { await customerApi.acceptAccountPlan(planId); await plansQuery.refetch(); }
-    catch { setError('We couldn’t accept that plan. Please try again.'); }
+    catch { setError(t('customer.acceptError')); }
     finally { setBusyPlan(null); }
   }
 
@@ -1683,7 +1714,7 @@ function CustomerAccount() {
     setBusyPlan(planId);
     setError('');
     try { await customerApi.reportAccountPayment(planId, 'Customer self-reported payment'); setReported((value) => ({ ...value, [planId]: true })); }
-    catch { setError('We couldn’t record your payment report. Please try again.'); }
+    catch { setError(t('customer.paymentError')); }
     finally { setBusyPlan(null); }
   }
 
@@ -1694,16 +1725,16 @@ function CustomerAccount() {
 
   return (
     <div className="customer-portal customer-account-page">
-      <div className="portal-brand"><BrandLockup /></div>
+      <div className="portal-topbar"><div className="portal-brand"><BrandLockup /></div><ThemeLanguage /></div>
       <div className="portal-card panel customer-account-card">
         <div className="customer-account-heading">
-          <div><span className="eyebrow">CUSTOMER ACCOUNT</span><h1>Your plans</h1></div>
-          <button className="text-link" type="button" onClick={signOut}>Log out</button>
+          <div><span className="eyebrow">{t('customer.accountEyebrow')}</span><h1>{t('customer.plansTitle')}</h1></div>
+          <button className="text-link" type="button" onClick={signOut}>{t('customer.logOut')}</button>
         </div>
-        {plansQuery.isLoading ? <p className="muted-paragraph">Loading your plans…</p> : plansQuery.isError ? (
-          <><p role="alert" className="muted-paragraph">Your session has expired. Log in again to view your plans.</p><Link className="button button-primary full-width" to={`/${lang}/customer-access`}>Go to customer login</Link></>
+        {plansQuery.isLoading ? <p className="muted-paragraph">{t('customer.loadingPlans')}</p> : plansQuery.isError ? (
+          <><p role="alert" className="muted-paragraph">{t('customer.sessionExpired')}</p><Link className="button button-primary full-width" to={`/${lang}/customer-access`}>{t('customer.customerLogin')}</Link></>
         ) : plans.length === 0 ? (
-          <div className="customer-account-empty"><h2>No plans yet</h2><p className="muted-paragraph">Plans a merchant creates for this email will appear here. You can also open an offer using its secure link or QR code.</p><Link className="button button-outline full-width" to={`/${lang}/customer-access`}>Open a merchant offer</Link></div>
+          <div className="customer-account-empty"><h2>{t('customer.noPlansTitle')}</h2><p className="muted-paragraph">{t('customer.noPlansBody')}</p><Link className="button button-outline full-width" to={`/${lang}/customer/open-offer`}>{t('customer.openOffer')}</Link></div>
         ) : (
           <div className="customer-account-plans">
             {plans.map((plan) => (
@@ -1711,21 +1742,21 @@ function CustomerAccount() {
                 <div className="merchant-profile">
                   <span className="merchant-avatar">{initials(plan.merchantName)}</span>
                   <span><b>{plan.merchantName}</b><small>{plan.itemName}</small></span>
-                  <span className={`tag-chip ${plan.status === 'ACTIVE' ? 'tag-active' : ''}`}>{plan.status === 'ACTIVE' ? 'Active' : 'Awaiting your decision'}</span>
+                  <span className={`tag-chip ${plan.status === 'ACTIVE' ? 'tag-active' : ''}`}>{plan.status === 'ACTIVE' ? t('customer.active') : t('customer.awaitingDecision')}</span>
                 </div>
-                <div className="portal-total"><small>Fixed total price</small><strong>{inr(plan.totalPricePaise)}</strong></div>
+                <div className="portal-total"><small>{t('customer.fixedTotal')}</small><strong>{inr(plan.totalPricePaise)}</strong></div>
                 <div className="customer-account-schedule">
-                  {plan.installments.map((row, index) => <div className="preview-row" key={row.id}><span>{index + 1}. {shortDate(row.dueDate)} <small>{row.status.toLowerCase()}</small></span><strong>{inr(row.amount_paise)}</strong></div>)}
+                  {plan.installments.map((row, index) => <div className="preview-row" key={row.id}><span>{index + 1}. {shortDate(row.dueDate, lang === 'ur' ? 'ur-IN' : 'en-IN')} <small>{t(`labels.${row.status.toLowerCase()}`)}</small></span><strong>{inr(row.amount_paise)}</strong></div>)}
                 </div>
                 {plan.status === 'PENDING' ? (
                   <>
-                    <label className="consent-check"><input type="checkbox" checked={Boolean(accepted[plan.id])} onChange={(e) => setAccepted((value) => ({ ...value, [plan.id]: e.target.checked }))} /><span>I reviewed this fixed total price and payment schedule and agree to the merchant’s offer.</span></label>
-                    <button className="button button-primary full-width" type="button" disabled={!accepted[plan.id] || busyPlan === plan.id} onClick={() => void acceptPlan(plan.id)}>{busyPlan === plan.id ? 'Saving…' : 'Accept plan'} <ArrowRight size={15} /></button>
+                    <label className="consent-check"><input type="checkbox" checked={Boolean(accepted[plan.id])} onChange={(e) => setAccepted((value) => ({ ...value, [plan.id]: e.target.checked }))} /><span>{t('customer.acceptConsent')}</span></label>
+                    <button className="button button-primary full-width" type="button" disabled={!accepted[plan.id] || busyPlan === plan.id} onClick={() => void acceptPlan(plan.id)}>{busyPlan === plan.id ? t('customer.saving') : t('customer.acceptPlan')} <ArrowRight size={15} /></button>
                   </>
                 ) : (
                   <>
-                    {plan.upiLink ? <><a className="button button-primary full-width" href={plan.upiLink}>Pay with UPI app <ArrowUpRight size={15} /></a><button className="button button-outline full-width" type="button" onClick={() => setShowQr((value) => ({ ...value, [plan.id]: !value[plan.id] }))}>{showQr[plan.id] ? 'Hide payment QR' : 'Pay by QR'}</button>{showQr[plan.id] && <OfferQr value={plan.upiLink} purpose="payment" />}</> : <p className="muted-paragraph">Ask {plan.merchantName} for payment details.</p>}
-                    {reported[plan.id] ? <p role="status" className="muted-paragraph">Payment reported. Your merchant will confirm it.</p> : <button className="button button-outline full-width" type="button" disabled={busyPlan === plan.id} onClick={() => void reportPayment(plan.id)}>I’ve paid</button>}
+                    {plan.upiLink ? <><a className="button button-primary full-width" href={plan.upiLink}>{t('customer.payWithUpi')} <ArrowUpRight size={15} /></a><button className="button button-outline full-width" type="button" onClick={() => setShowQr((value) => ({ ...value, [plan.id]: !value[plan.id] }))}>{showQr[plan.id] ? t('customer.hideQr') : t('customer.payByQr')}</button>{showQr[plan.id] && <OfferQr value={plan.upiLink} purpose="payment" />}</> : <p className="muted-paragraph">{t('customer.askForPayment', { merchant: plan.merchantName })}</p>}
+                    {reported[plan.id] ? <p role="status" className="muted-paragraph">{t('customer.paymentReported')}</p> : <button className="button button-outline full-width" type="button" disabled={busyPlan === plan.id} onClick={() => void reportPayment(plan.id)}>{t('customer.ivePaid')}</button>}
                   </>
                 )}
               </article>
@@ -1734,7 +1765,81 @@ function CustomerAccount() {
         )}
         {error && <p role="alert" className="muted-paragraph">{error}</p>}
       </div>
-      <div className="portal-foot">Your payments go directly to each merchant · <Link to={`/${lang}/legal/privacy`}>Privacy</Link></div>
+      <div className="portal-foot">{t('customer.directPayments')} · <Link to={`/${lang}/legal/privacy`}>{t('customer.privacy')}</Link></div>
+    </div>
+  );
+}
+
+function CustomerOfferOpen() {
+  const lang = useLang();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerRef = useRef<{ stop: () => void } | null>(null);
+  const [offerLink, setOfferLink] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => () => scannerRef.current?.stop(), []);
+
+  function openOffer(value: string) {
+    const pathToken = value.trim().match(/(?:^|\/)customer\/([A-Za-z0-9_-]{20,})(?:[/?#]|$)/)?.[1];
+    const rawToken = /^[A-Za-z0-9_-]{20,}$/.test(value.trim()) ? value.trim() : undefined;
+    const token = pathToken || rawToken;
+    if (!token) {
+      setError(t('customer.invalidLink'));
+      return;
+    }
+    scannerRef.current?.stop();
+    scannerRef.current = null;
+    navigate(`/${lang}/customer/${token}`);
+  }
+
+  async function startScan() {
+    setError('');
+    setScanning(true);
+    try {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser');
+      if (!videoRef.current) return;
+      const reader = new BrowserMultiFormatReader();
+      scannerRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+        if (result) openOffer(result.getText());
+      });
+    } catch {
+      setScanning(false);
+      setError(t('customer.cameraUnavailable'));
+    }
+  }
+
+  function submitLink(event: React.FormEvent) {
+    event.preventDefault();
+    openOffer(offerLink);
+  }
+
+  return (
+    <div className="customer-portal">
+      <div className="portal-topbar"><div className="portal-brand"><BrandLockup /></div><ThemeLanguage /></div>
+      <section className="portal-card panel customer-offer-open-card">
+        <Link className="text-link" to={`/${lang}/customer/account`}>← {t('customer.backToPlans')}</Link>
+        <span className="eyebrow">{t('customer.accountEyebrow')}</span>
+        <h1>{t('customer.openTitle')}</h1>
+        <p className="muted-paragraph">{t('customer.openBody')}</p>
+        <button className="button button-outline full-width" type="button" onClick={() => void startScan()} disabled={scanning}>
+          {scanning ? t('customer.scanning') : t('customer.scanQr')} <ArrowRight size={15} />
+        </button>
+        <div className={`customer-qr-scanner${scanning ? ' is-active' : ''}`}>
+          <video ref={videoRef} muted playsInline />
+          {scanning && <button className="text-link" type="button" onClick={() => { scannerRef.current?.stop(); scannerRef.current = null; setScanning(false); }}>{t('customer.stopCamera')}</button>}
+        </div>
+        <div className="offer-open-divider"><span>{t('customer.or')}</span></div>
+        <form onSubmit={submitLink}>
+          <label className="field"><span>{t('customer.offerLink')}</span><input autoComplete="url" inputMode="url" placeholder={t('customer.offerLinkPlaceholder')} value={offerLink} onChange={(event) => { setOfferLink(event.target.value); setError(''); }} required /></label>
+          {error && <p role="alert" className="muted-paragraph">{error}</p>}
+          <button className="button button-primary full-width" type="submit">{t('customer.continueOffer')} <ArrowRight size={15} /></button>
+        </form>
+        <p className="muted-paragraph offer-open-security">{t('customer.privateOffer')}</p>
+      </section>
+      <div className="portal-foot">{t('customer.directPayments')} · <Link to={`/${lang}/legal/privacy`}>{t('customer.privacy')}</Link></div>
     </div>
   );
 }
@@ -1751,46 +1856,57 @@ function CustomerPortal() {
   const [error, setError] = useState('');
   const [reported, setReported] = useState(false);
   const [showPaymentQr, setShowPaymentQr] = useState(false);
+  const [accountSession, setAccountSession] = useState(() => customerApi.hasCustomerSession());
   useEffect(() => {
     let active = true;
-    customerApi.requestOtp(token).then((result) => { if (active) { setMaskedEmail(result.email); setView('verify'); } }).catch(() => { if (active) { setError('This offer link may have expired. Ask the merchant to send you a new one.'); setView('error'); } });
+    if (customerApi.hasCustomerSession()) {
+      setAccountSession(true);
+      customerApi.accountOffer(token)
+        .then((offer) => { if (active) { setPlan(offer); setView(offer.status === 'ACTIVE' ? 'accepted' : 'offer'); } })
+        .catch((err: unknown) => { if (active) { setError(err instanceof Error && err.message.includes('(403)') ? t('customer.offerMismatch') : t('customer.offerExpired')); setView('error'); } });
+    } else {
+      customerApi.requestOtp(token).then((result) => { if (active) { setMaskedEmail(result.email); setView('verify'); } }).catch(() => { if (active) { setError(t('customer.offerExpired')); setView('error'); } });
+    }
     return () => { active = false; };
   }, [token]);
   async function verifyCustomer(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError('');
     try { const result = await customerApi.verify(token, code); setPlan(result.plan); setView(result.plan.status === 'ACTIVE' ? 'accepted' : 'offer'); }
-    catch { setError('That code could not be verified. Check it and try again.'); }
+    catch { setError(t('access.verifyFailed')); }
     finally { setBusy(false); }
   }
   async function acceptOffer() {
     setBusy(true); setError('');
-    try { const result = await customerApi.accept(); setPlan(result.plan); setView('accepted'); }
-    catch { setError('We could not record your acceptance. Please try again or contact the merchant.'); }
+    try {
+      const result = accountSession && plan
+        ? await customerApi.acceptAccountPlan(plan.id)
+        : await customerApi.accept();
+      setPlan(result.plan); setView('accepted');
+    }
+    catch { setError(t('customer.acceptError')); }
     finally { setBusy(false); }
   }
   async function downloadAgreement() {
-    try { const blob = await customerApi.agreement(); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'amanah-plan-agreement.txt'; link.click(); URL.revokeObjectURL(url); }
-    catch { setError('The agreement is not available yet.'); }
+    try { const blob = accountSession && plan ? await customerApi.accountAgreement(plan.id) : await customerApi.agreement(); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'amanah-plan-agreement.txt'; link.click(); URL.revokeObjectURL(url); }
+    catch { setError(t('customer.offerLoadError')); }
   }
   return (
     <div className="customer-portal">
-      <div className="portal-brand">
-        <BrandLockup />
-      </div>
+      <div className="portal-topbar"><div className="portal-brand"><BrandLockup /></div><ThemeLanguage /></div>
       <div className="portal-card panel">
         {view === 'loading' ? (
-          <><span className="eyebrow">SECURE CUSTOMER OFFER</span><h1>Getting your offer ready</h1><p className="muted-paragraph">We’re checking your secure link and sending an email code.</p></>
+          <><span className="eyebrow">{t('customer.offerEyebrow')}</span><h1>{t('customer.loadingOffer')}</h1><p className="muted-paragraph">{accountSession ? t('customer.checkingAccount') : t('customer.checkingLink')}</p></>
         ) : view === 'error' ? (
-          <><span className="eyebrow">SECURE CUSTOMER OFFER</span><h1>We can’t open this offer</h1><p role="alert" className="muted-paragraph">{error}</p><Link to={'/' + (location.pathname.split('/')[1] || 'en')} className="button button-outline full-width">Back to Amanah Pay</Link></>
+          <><span className="eyebrow">{t('customer.offerEyebrow')}</span><h1>{t('customer.offerErrorTitle')}</h1><p role="alert" className="muted-paragraph">{error}</p><Link to={'/' + (location.pathname.split('/')[1] || 'en')} className="button button-outline full-width">{t('customer.backHome')}</Link></>
         ) : view === 'verify' ? (
           <>
-            <span className="eyebrow">YOUR OFFER IS PRIVATE</span>
-            <h1>Verify your email</h1>
-            <p className="muted-paragraph">We sent a six-digit code to {maskedEmail}. It expires in 10 minutes.</p>
+            <span className="eyebrow">{t('customer.privateEyebrow')}</span>
+            <h1>{t('customer.verifyEmail')}</h1>
+            <p className="muted-paragraph">{t('customer.codeSent', { email: maskedEmail })}</p>
             <form onSubmit={verifyCustomer}>
-              <label className="field"><span>Email verification code</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
+              <label className="field"><span>{t('customer.emailCode')}</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
               {error && <p role="alert" className="muted-paragraph">{error}</p>}
-              <button className="button button-primary full-width" disabled={busy}>{busy ? 'Verifying…' : 'View my offer'}</button>
+              <button className="button button-primary full-width" disabled={busy}>{busy ? t('customer.verifying') : t('customer.viewOffer')}</button>
             </form>
           </>
         ) : view === 'offer' && plan ? (
@@ -1799,38 +1915,38 @@ function CustomerPortal() {
               <span className="merchant-avatar">{initials(plan.merchantName)}</span>
               <span>
                 <b>{plan.merchantName}</b>
-                <small>Purchase offer</small>
+                <small>{t('customer.purchaseOffer')}</small>
               </span>
             </div>
-            <h1>Review your offer</h1>
+            <h1>{t('customer.reviewOffer')}</h1>
             <p className="muted-paragraph">{plan.itemName}</p>
             <div className="portal-total">
-              <small>Fixed total price</small>
+              <small>{t('customer.fixedTotal')}</small>
               <strong>{inr(plan.totalPricePaise)}</strong>
             </div>
-            {plan.downPaymentPaise > 0 && <div className="portal-line"><span>Down payment</span><b>{inr(plan.downPaymentPaise)}</b></div>}
+            {plan.downPaymentPaise > 0 && <div className="portal-line"><span>{t('labels.downPayment')}</span><b>{inr(plan.downPaymentPaise)}</b></div>}
             <h3>{t('labels.schedule')}</h3>
             {plan.installments.map((row, i) => (
               <div className="preview-row" key={row.id}>
-                <span>{i + 1}. {shortDate(row.dueDate)} <small>{row.status.toLowerCase()}</small></span>
+                <span>{i + 1}. {shortDate(row.dueDate, location.pathname.startsWith('/ur/') ? 'ur-IN' : 'en-IN')} <small>{t(`labels.${row.status.toLowerCase()}`)}</small></span>
                 <strong>{inr(row.amount_paise)}</strong>
               </div>
             ))}
-            <p className="muted-paragraph">No interest is added to these installments. Pay the merchant directly.</p>
+            <p className="muted-paragraph">{t('customer.noInterest')}</p>
             <label className="consent-check">
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => setChecked(e.target.checked)}
               />
-              <span>I have reviewed the fixed total price and schedule and agree to this merchant’s offer.</span>
+              <span>{t('customer.acceptOfferConsent')}</span>
             </label>
             <button
               className="button button-primary full-width"
               disabled={!checked || busy}
               onClick={() => void acceptOffer()}
             >
-              {busy ? 'Saving…' : 'Accept offer'}
+              {busy ? t('customer.saving') : t('customer.acceptOffer')}
             </button>
             {error && <p role="alert" className="muted-paragraph">{error}</p>}
           </>
@@ -1839,28 +1955,27 @@ function CustomerPortal() {
             <span className="paid-big">
               <Check size={24} />
             </span>
-            <h1>Offer accepted</h1>
-            <p className="muted-paragraph">{plan?.merchantName} will receive your payments. Keep this schedule and your agreement for reference.</p>
+            <h1>{t('customer.accepted')}</h1>
+            <p className="muted-paragraph">{t('customer.acceptedBody', { merchant: plan?.merchantName })}</p>
             {plan?.upiLink ? (
               <>
-                <a className="button button-primary full-width" href={plan.upiLink}>Pay with UPI app <ArrowUpRight size={15} /></a>
+                <a className="button button-primary full-width" href={plan.upiLink}>{t('customer.payWithUpi')} <ArrowUpRight size={15} /></a>
                 <button className="button button-outline full-width" onClick={() => setShowPaymentQr((visible) => !visible)}>
-                  {showPaymentQr ? 'Hide payment QR' : 'Pay by QR'}
+                  {showPaymentQr ? t('customer.hideQr') : t('customer.payByQr')}
                 </button>
                 {showPaymentQr && <OfferQr value={plan.upiLink} purpose="payment" />}
               </>
-            ) : <p className="muted-paragraph">Ask {plan?.merchantName} for their payment details.</p>}
-            {reported ? <p role="status" className="muted-paragraph">Payment marked as reported. Your merchant will confirm it.</p> : <button className="button button-outline full-width" onClick={async () => { try { const result = await customerApi.reportPayment('Customer self-reported payment'); setReported(true); setError(result.message); } catch { setError('Could not submit the payment report.'); } }}>I’ve paid</button>}
-            <button className="text-link portal-agreement" onClick={() => void downloadAgreement()}>Download agreement</button>
+            ) : <p className="muted-paragraph">{t('customer.askForPayment', { merchant: plan?.merchantName })}</p>}
+            {reported ? <p role="status" className="muted-paragraph">{t('customer.paymentMarked')}</p> : <button className="button button-outline full-width" onClick={async () => { try { const result = accountSession && plan ? await customerApi.reportAccountPayment(plan.id, 'Customer self-reported payment') : await customerApi.reportPayment('Customer self-reported payment'); setReported(true); setError(result.message); } catch { setError(t('customer.reportPaymentError')); } }}>{t('customer.ivePaid')}</button>}
+            <button className="text-link portal-agreement" onClick={() => void downloadAgreement()}>{t('customer.agreement')}</button>
+            {accountSession && <Link className="button button-outline full-width" to={`/${location.pathname.split('/')[1] || 'en'}/customer/account`}>{t('customer.backToPlans')}</Link>}
             {error && <p role="status" className="muted-paragraph">{error}</p>}
-            <p className="portal-support">
-              Need help? <a href="mailto:support@amanahpay.in">Contact support</a>
-            </p>
+            <p className="portal-support">{t('customer.supportQuestion')} <a href="mailto:afnan@ghpcl.com">{t('customer.contactSupport')}</a></p>
           </>
         )}
       </div>
       <div className="portal-foot">
-        Payments go directly to the merchant · <Link to="/en/legal/privacy">Privacy</Link>
+        {t('customer.directPayments')} · <Link to={`/${location.pathname.split('/')[1] || 'en'}/legal/privacy`}>{t('customer.privacy')}</Link>
       </div>
     </div>
   );
@@ -1868,6 +1983,7 @@ function CustomerPortal() {
 
 function Calculator() {
   const { t } = useTranslation();
+  const lang = useLang();
   const [price, setPrice] = useState('16000');
   const [down, setDown] = useState('4000');
   const [count, setCount] = useState(3);
@@ -1914,7 +2030,7 @@ function Calculator() {
             <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
               {[2, 3, 4, 6, 9, 12, 18, 24].map((n) => (
                 <option key={n} value={n}>
-                  {n} months
+                  {t('calculator.monthsOption', { count: n })}
                 </option>
               ))}
             </select>
@@ -1925,7 +2041,7 @@ function Calculator() {
           </label>
           <div className="fixed-price-note">
             <Check size={16} />
-            <span>No interest added by Amanah Pay. No hidden customer fee.</span>
+            <span>{t('calculator.fixedPriceNote')}</span>
           </div>
         </div>
         <div className="calc-result">
@@ -1934,19 +2050,19 @@ function Calculator() {
             <strong>{inr(Number(price || 0) * 100)}</strong>
           </div>
           <div className="preview-row">
-            <span>Today · Down payment</span>
+            <span>{t('calculator.todayDown')}</span>
             <strong>{inr(Number(down || 0) * 100)}</strong>
           </div>
           {schedule.map((row) => (
             <div className="preview-row" key={row.number}>
               <span>
-                {shortDate(row.date)} · Installment {row.number}
+                {shortDate(row.date, lang === 'ur' ? 'ur-IN' : 'en-IN')} · {t('home.installment', { number: row.number })}
               </span>
               <strong>{inr(row.amountPaise)}</strong>
             </div>
           ))}
           <small className="preview-caption">
-            Illustrative only. The merchant confirms the final fixed-price agreement and schedule.
+            {t('calculator.illustrativeOnly')}
           </small>
         </div>
       </div>
@@ -1964,39 +2080,38 @@ function ContentPage({
   const [faq, setFaq] = useState(-1);
   const titles = {
     how: t('sections.how'),
-    merchants: 'A workspace made for everyday collections',
+    merchants: t('content.merchantTitle'),
     pricing: t('sections.pricing'),
     approach: t('labels.trustTitle'),
     faq: t('sections.faq'),
-    about: 'Built around a clearer agreement',
+    about: t('content.aboutTitle'),
   };
   const body = {
     how: t('sections.howBody'),
     merchants:
-      'Keep customer records, fixed-price plans, payments and reminders together — while the merchant stays in control.',
+      t('content.merchantBody'),
     pricing: t('sections.pricingBody'),
     approach: t('labels.trustBody'),
-    faq: 'A few useful details for merchants and customers.',
-    about:
-      'Amanah Pay is being built to make installment agreements easier for merchants to share and easier for customers to understand.',
+    faq: t('content.faqIntro'),
+    about: t('content.aboutBody'),
   };
   if (type === 'faq')
     return (
       <section className="public-page content-page">
-        <span className="eyebrow">HELP CENTRE</span>
+        <span className="eyebrow">{t('content.help')}</span>
         <h1>{titles[type]}</h1>
         <p className="lead">{body[type]}</p>
         <div className="faq-search search-field">
           <Search size={16} />
-          <input placeholder="Search questions" />
+          <input placeholder={t('content.searchQuestions')} />
         </div>
         <div className="faq-list">
           {[
             t('labels.faqQ'),
-            'Who receives the customer payments?',
-            'Can the customer see every due date?',
-            'Does the app add late fees?',
-            'How is customer information used?',
+            t('content.faqWho'),
+            t('content.faqDates'),
+            t('content.faqLate'),
+            t('content.faqData'),
           ].map((q, i) => (
             <div className="faq-item" key={q}>
               <button aria-expanded={faq === i} onClick={() => setFaq(faq === i ? -1 : i)}>
@@ -2008,10 +2123,10 @@ function ContentPage({
                   {i === 0
                     ? t('labels.faqA')
                     : [
-                        'The customer pays the merchant directly using the merchant’s UPI details or a gateway that settles to the merchant.',
-                        'Yes. The customer offer page shows the agreed total, down payment and complete schedule before acceptance.',
-                        'Late-fee terms are optional, off by default, and must be disclosed in the agreement before acceptance.',
-                        'Only the information needed to create and service the merchant’s plan should be collected.',
+                        t('content.faqDirectBody'),
+                        t('content.faqScheduleBody'),
+                        t('content.faqLateBody'),
+                        t('content.faqDataBody'),
                       ][i - 1]}
                 </p>
               )}
@@ -2023,29 +2138,28 @@ function ContentPage({
   if (type === 'pricing')
     return (
       <section className="public-page content-page centered-content">
-        <span className="eyebrow">MERCHANT PRICING</span>
+        <span className="eyebrow">{t('content.pricing')}</span>
         <h1>{titles[type]}</h1>
         <p className="lead">{body[type]}</p>
         <div className="pricing-card panel">
           <span className="pricing-icon">
             <WalletCards size={20} />
           </span>
-          <h2>One clear platform fee</h2>
+          <h2>{t('content.oneFee')}</h2>
           <p>
-            Choose a flat fee per active plan or a percentage of plan value. Your exact fee will be
-            shown before you activate your merchant account.
+            {t('content.feeDetails')}
           </p>
-          <div className="price-placeholder">Pricing details shared during onboarding</div>
+          <div className="price-placeholder">{t('content.feeOnboarding')}</div>
           <div className="feature-line">
             <Check size={15} />
-            No fees added to customer installments
+            {t('content.noCustomerFees')}
           </div>
           <div className="feature-line">
             <Check size={15} />
-            No charge for customers to view their plan
+            {t('content.freePlan')}
           </div>
           <Link to={langPath(lang, '/contact')} className="button button-primary full-width">
-            Talk to our team <ArrowRight size={15} />
+            {t('content.talkToTeam')} <ArrowRight size={15} />
           </Link>
         </div>
         <div className="verify-badge">{t('labels.verify')}</div>
@@ -2054,26 +2168,26 @@ function ContentPage({
   if (type === 'approach')
     return (
       <section className="public-page content-page">
-        <span className="eyebrow">OUR APPROACH</span>
+        <span className="eyebrow">{t('content.approach')}</span>
         <h1>{titles[type]}</h1>
         <p className="lead">{body[type]}</p>
         <div className="approach-grid">
           {[
             [
-              'Fixed and clear',
-              'The total deferred price is agreed upfront and the schedule is visible before acceptance.',
+              t('content.fixedClear'),
+              t('content.fixedClearBody'),
             ],
             [
-              'Paid to the merchant',
-              'Customers pay the merchant directly. Amanah Pay does not hold or pool customer funds.',
+              t('content.paidToMerchant'),
+              t('content.paidToMerchantBody'),
             ],
             [
-              'Merchant-paid service',
-              'A transparent platform fee is charged to the merchant, never added to the customer plan.',
+              t('content.merchantPaid'),
+              t('content.merchantPaidBody'),
             ],
             [
-              'Customer data matters',
-              'We aim to collect only what is needed to manage and track the plan.',
+              t('content.dataMatters'),
+              t('content.dataBody'),
             ],
           ].map(([a, b]) => (
             <article className="approach-card" key={a}>
@@ -2088,8 +2202,7 @@ function ContentPage({
         <div className="adviser-panel">
           <span className="verify-badge">{t('labels.verify')}</span>
           <p>
-            Product structure and any religious or regulatory claims require independent review
-            before launch.
+            {t('content.reviewRequired')}
           </p>
         </div>
       </section>
@@ -2098,7 +2211,7 @@ function ContentPage({
     <section className="public-page content-page">
       <div className="content-hero">
         <div>
-          <span className="eyebrow">{type === 'how' ? 'THREE SIMPLE STEPS' : 'FOR MERCHANTS'}</span>
+          <span className="eyebrow">{type === 'how' ? t('content.threeSteps') : t('content.forMerchants')}</span>
           <h1>{titles[type]}</h1>
           <p className="lead">{body[type]}</p>
           <Link to={langPath(lang, type === 'how' ? '/calculator' : '/signup')} className="button button-primary">
@@ -2122,22 +2235,22 @@ function ContentPage({
         ))}
       </div>
       <div className="lifecycle">
-        <span>Offer</span>
+        <span>{t('content.offer')}</span>
         <ArrowRight />
-        <span>Accepted</span>
+        <span>{t('content.accepted')}</span>
         <ArrowRight />
-        <span>Active</span>
+        <span>{t('content.active')}</span>
         <ArrowRight />
-        <span>Paid / closed</span>
+        <span>{t('content.closed')}</span>
       </div>
       <div className="feature-grid">
         {[
-          ['Customer records', 'Find a plan and payment history quickly.'],
-          ['Payment schedule', 'Keep every due date and balance visible.'],
-          ['Friendly reminders', 'Share a reminder by WhatsApp or SMS.'],
-          ['Merchant control', 'Your team decides how to offer a plan.'],
-          ['UPI collection', 'Show the merchant’s own payment details.'],
-          ['Useful reports', 'See collected, pending and overdue amounts.'],
+          [t('content.customerRecords'), t('content.customerRecordsBody')],
+          [t('content.schedule'), t('content.scheduleBody')],
+          [t('content.reminders'), t('content.remindersBody')],
+          [t('content.merchantControl'), t('content.merchantControlBody')],
+          [t('content.upi'), t('content.upiBody')],
+          [t('content.reports'), t('content.reportsBody')],
         ].map(([a, b]) => (
           <article className="feature-card" key={a}>
             <span className="feature-icon">
@@ -2170,38 +2283,38 @@ function Contact() {
     <section className="public-page contact-page">
       <div>
         <span className="eyebrow">{t('labels.contactUs')}</span>
-        <h1>Let’s make collections clearer.</h1>
-        <p className="lead">Tell us a little about your business and what you need.</p>
+        <h1>{t('content.contactTitle')}</h1>
+        <p className="lead">{t('content.contactBody')}</p>
         <div className="contact-detail">
           <span className="contact-icon">
             <CircleHelp size={18} />
           </span>
           <span>
-            <b>Merchant support</b>
-            <small>We’ll reply to your email as soon as we can.</small>
+            <b>{t('content.merchantSupport')}</b>
+            <small>{t('content.replyEmail')}</small>
           </span>
         </div>
       </div>
       <form className="panel contact-form" onSubmit={handleSubmit(() => setSent(true))}>
         <label className="field">
-          <span>{t('labels.customerName')}</span>
-          <input {...register('name')} placeholder="Your name" />
-          {errors.name && <small className="field-error">Please enter your name.</small>}
+          <span>{t('content.yourName')}</span>
+          <input {...register('name')} placeholder={t('content.yourName')} />
+          {errors.name && <small className="field-error">{t('content.validName')}</small>}
         </label>
         <label className="field">
           <span>{t('labels.email')}</span>
           <input {...register('email')} type="email" placeholder="you@business.com" />
-          {errors.email && <small className="field-error">Enter a valid email.</small>}
+          {errors.email && <small className="field-error">{t('content.validEmail')}</small>}
         </label>
         <label className="field">
           <span>{t('labels.message')}</span>
           <textarea
             {...register('message')}
             rows={4}
-            placeholder="A short note about your business"
+            placeholder={t('content.messagePlaceholder')}
           />
           {errors.message && (
-            <small className="field-error">Please add a little more detail.</small>
+            <small className="field-error">{t('content.moreDetail')}</small>
           )}
         </label>
         <button className="button button-primary full-width" type="submit">
@@ -2209,7 +2322,7 @@ function Contact() {
           <ArrowRight size={15} />
         </button>
         <small className="muted-paragraph">
-          Demo form · messages are not sent until the contact API is connected.
+          {t('content.demoContact')}
         </small>
       </form>
     </section>
@@ -2231,7 +2344,7 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
     try {
       if (!sent) { if (signup) await authApi.signup(email, businessName); else await authApi.requestLogin(email); setSent(true); }
       else { await authApi.verify(email, code, signup ? 'SIGNUP' : 'LOGIN'); navigate(`/${lang}/app`, { replace: true }); }
-    } catch { setError(sent ? 'That code could not be verified. Please try again.' : 'We could not start sign-in. Please try again shortly.'); }
+    } catch { setError(sent ? t('merchantAuth.invalidCode') : t('merchantAuth.signInFailed')); }
     finally { setBusy(false); }
   }
   return (
@@ -2243,33 +2356,36 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
         <span className="auth-symbol">
           <BrandSymbol />
         </span>
-        <span className="eyebrow">MERCHANT ACCOUNT</span>
+        <span className="eyebrow">{t('merchantAuth.eyebrow')}</span>
         <h1>
-          {sent ? t('labels.verifyOtp') : signup ? 'Start your merchant workspace' : 'Welcome back'}
+          {sent ? t('merchantAuth.verifyCode') : signup ? t('merchantAuth.startTitle') : t('merchantAuth.welcome')}
         </h1>
         <p className="muted-paragraph">
           {sent
-            ? `Enter the one-time code sent to ${email}.`
+            ? t('merchantAuth.codeToEmail', { email })
             : signup
-              ? 'Create an account to organize your payment plans.'
-              : 'Sign in to manage your customers and collections.'}
+              ? t('merchantAuth.createBody')
+              : t('merchantAuth.signInBody')}
         </p>
         {!sent ? (
           <>
-            {signup && <label className="field"><span>Business name</span><input autoComplete="organization" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required /></label>}
-            <label className="field"><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@business.in" required /></label>
+            {signup && <label className="field"><span>{t('merchantAuth.businessName')}</span><input autoComplete="organization" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required /></label>}
+            <label className="field"><span>{t('merchantAuth.email')}</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('merchantAuth.emailPlaceholder')} required /></label>
           </>
         ) : (
-          <label className="field"><span>6-digit email code</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
+          <label className="field"><span>{t('merchantAuth.codeLabel')}</span><input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>
         )}
         {error && <p role="alert" className="muted-paragraph">{error}</p>}
         <button className="button button-primary full-width" type="submit" disabled={busy}>
-          {busy ? 'Please wait…' : sent ? t('labels.continue') : 'Send one-time code'}
+          {busy ? t('merchantAuth.wait') : sent ? t('labels.continue') : t('merchantAuth.sendCode')}
         </button>
         <small className="auth-legal">
-          By continuing, you agree to our <Link to={'/' + lang + '/legal/terms'}>Terms</Link> and{' '}
-          <Link to={'/' + lang + '/legal/privacy'}>Privacy notice</Link>.
+          {t('merchantAuth.agree')} <Link to={'/' + lang + '/legal/terms'}>{t('merchantAuth.terms')}</Link>{' '}
+          <Link to={'/' + lang + '/legal/privacy'}>{t('merchantAuth.privacy')}</Link>.
         </small>
+        <Link className="text-link" to={'/' + lang + (signup ? '/login' : '/signup')}>
+          {signup ? t('merchantAuth.alreadyRegistered') : t('merchantAuth.newMerchant')}
+        </Link>
         {import.meta.env.VITE_USE_MOCKS === 'true' && (
           <span className="mock-caption">Demo flow · OTP is simulated</span>
         )}
@@ -2280,40 +2396,27 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
 
 function LegalPage() {
   const { slug = 'terms' } = useParams();
+  const { t } = useTranslation();
   const titles: Record<string, string> = {
-    terms: 'Terms of use',
-    privacy: 'Privacy notice',
-    dpdp: 'DPDP notice',
-    grievance: 'Grievance redressal',
-    cookies: 'Cookie notice',
+    terms: t('legal.terms'),
+    privacy: t('legal.privacy'),
+    dpdp: t('legal.dpdp'),
+    grievance: t('legal.grievance'),
+    cookies: t('legal.cookies'),
   };
   return (
     <section className="public-page legal-page">
-      <span className="eyebrow">INFORMATION</span>
-      <h1>{titles[slug] || 'Information'}</h1>
+      <span className="eyebrow">{t('legal.information')}</span>
+      <h1>{titles[slug] || t('legal.information')}</h1>
       <div className="legal-panel panel">
-        <p>
-          This page is a draft placeholder for legal review. It is not the final contract or privacy
-          notice.
-        </p>
-        <h2>How the service works</h2>
-        <p>
-          Amanah Pay helps merchants create and track fixed-price installment schedules. Customer
-          payments are made directly to the merchant. The platform does not hold or pool customer
-          funds.
-        </p>
-        <h2>Customer information</h2>
-        <p>
-          Information should be collected only for clear purposes, protected with appropriate
-          safeguards, and retained only as required. Contact support for requests about your
-          information.
-        </p>
-        <h2>Contact and complaints</h2>
-        <p>
-          Write to <a href="mailto:support@amanahpay.in">support@amanahpay.in</a>. A designated
-          grievance contact and response timelines will be added before launch.
-        </p>
-        <span className="verify-badge">DRAFT · VERIFY WITH COUNSEL</span>
+        <p>{t('legal.placeholder')}</p>
+        <h2>{t('legal.serviceTitle')}</h2>
+        <p>{t('legal.serviceBody')}</p>
+        <h2>{t('legal.customerTitle')}</h2>
+        <p>{t('legal.customerBody')}</p>
+        <h2>{t('legal.contactTitle')}</h2>
+        <p>{t('legal.contactBody')} <a href="mailto:afnan@ghpcl.com">afnan@ghpcl.com</a>. {t('legal.grievanceDraft')}</p>
+        <span className="verify-badge">{t('legal.draftBadge')}</span>
       </div>
     </section>
   );

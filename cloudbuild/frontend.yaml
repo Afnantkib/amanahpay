@@ -1,0 +1,43 @@
+substitutions:
+  _REGION: asia-south1
+  _AR_REPOSITORY: amanahpay
+  _SERVICE_NAME: amanahpay-frontend
+  _DEPLOY_TO_RUN: 'false'
+  _API_URL: http://backend:8080
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=frontend/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-frontend:$BUILD_ID
+      - --build-arg
+      - API_PROXY_UPSTREAM=${_API_URL}/api/
+      - --build-arg
+      - VITE_USE_MOCKS=false
+      - frontend
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-frontend:$BUILD_ID
+
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if [ "${_DEPLOY_TO_RUN}" != "true" ]; then
+          echo 'Cloud Run deployment skipped. Set _DEPLOY_TO_RUN=true to deploy this image.'
+          exit 0
+        fi
+        case "${_API_URL}" in https://*) ;; *) echo '_API_URL must be the deployed backend HTTPS URL (without a trailing slash).' >&2; exit 1 ;; esac
+        gcloud run deploy "${_SERVICE_NAME}" \
+          --image="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-frontend:$BUILD_ID" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --port=80 \
+          --allow-unauthenticated
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/amanahpay-frontend:$BUILD_ID

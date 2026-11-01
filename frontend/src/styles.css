@@ -609,6 +609,9 @@ p {
   font-weight: 700;
   letter-spacing: 0.08em;
 }
+html[data-theme='dark'] .verify-badge {
+  color: var(--ink);
+}
 .home-section {
   padding-top: 110px;
   padding-bottom: 90px;
@@ -2938,6 +2941,13 @@ html[data-theme='dark'] .receipt-check {
   width: 145px;
   height: 40px;
 }
+.portal-topbar {
+  width: min(100%, 560px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
 .portal-card {
   width: min(100%, 440px);
   padding: 25px;
@@ -2996,6 +3006,39 @@ html[data-theme='dark'] .receipt-check {
 }
 .customer-account-empty h2 {
   font-size: 18px;
+}
+.customer-offer-open-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.customer-offer-open-card > .text-link:first-child {
+  align-self: flex-start;
+}
+.customer-offer-open-card h1 {
+  margin-top: 2px;
+}
+.customer-offer-open-card form {
+  display: grid;
+  gap: 12px;
+}
+.offer-open-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.offer-open-divider::before,
+.offer-open-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+.offer-open-security {
+  margin: 0;
+  font-size: 11px;
 }
 .portal-card h1 {
   font-size: 23px;

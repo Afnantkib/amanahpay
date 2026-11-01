@@ -24,7 +24,6 @@ services:
     env_file: backend/.env
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
-      MAIL_FALLBACK_HOST: mailpit
     ports: ["8080:8080"]
     depends_on:
       mysql: {condition: service_healthy}
