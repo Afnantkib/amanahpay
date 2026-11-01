@@ -1567,6 +1567,41 @@ select {
 .auth-card .muted-paragraph {
   margin: -8px 0 4px;
 }
+.auth-switch-link {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.auth-switch-create {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.auth-switch-create:hover {
+  background: var(--primary-hover);
+  color: var(--on-primary);
+}
+.auth-switch-signin {
+  background: var(--dark-ink);
+  color: var(--primary);
+}
+.auth-switch-signin:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+.auth-switch-link:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
 .auth-legal,
 .mock-caption {
   font-size: 9px;

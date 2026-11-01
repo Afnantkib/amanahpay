@@ -3297,7 +3297,7 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
           {t('merchantAuth.agree')} <Link to={'/' + lang + '/legal/terms'}>{t('merchantAuth.terms')}</Link>{' '}
           <Link to={'/' + lang + '/legal/privacy'}>{t('merchantAuth.privacy')}</Link>.
         </small>
-        <Link className="text-link" to={'/' + lang + (signup ? '/login' : '/signup')}>
+        <Link className={`auth-switch-link ${signup ? 'auth-switch-signin' : 'auth-switch-create'}`} to={'/' + lang + (signup ? '/login' : '/signup')}>
           {signup ? t('merchantAuth.alreadyRegistered') : t('merchantAuth.newMerchant')}
         </Link>
         {import.meta.env.VITE_USE_MOCKS === 'true' && (

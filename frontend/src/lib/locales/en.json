@@ -302,8 +302,8 @@
     "agree": "By continuing, you agree to our",
     "terms": "Terms",
     "privacy": "Privacy notice",
-    "alreadyRegistered": "Already registered? Sign in with a code",
-    "newMerchant": "New merchant? Create an account",
+    "alreadyRegistered": "Already have an account? Sign in",
+    "newMerchant": "New merchant? Create account",
     "invalidCode": "That code could not be verified. Please try again.",
     "signInFailed": "We could not start sign-in. Please try again shortly."
   },
