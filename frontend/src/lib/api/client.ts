@@ -1,12 +1,28 @@
 import type { CustomerRow, DashboardSummary, MockPlan } from './types';
 const base = import.meta.env.VITE_API_URL || '';
-let accessToken: string | null = null;
-let customerToken: string | null = null;
+let accessToken: string | null = typeof window !== 'undefined' ? (sessionStorage.getItem('amanah_token') || localStorage.getItem('amanah_token')) : null;
+let customerToken: string | null = typeof window !== 'undefined' ? (sessionStorage.getItem('amanah_customer_token') || localStorage.getItem('amanah_customer_token')) : null;
 let refreshInFlight: Promise<boolean> | null = null;
-export function setAccessToken(token: string | null) { accessToken = token; }
-export function setCustomerToken(token: string | null) { customerToken = token; }
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) localStorage.setItem('amanah_token', token);
+    else { localStorage.removeItem('amanah_token'); sessionStorage.removeItem('amanah_token'); }
+  }
+}
+export function setCustomerToken(token: string | null) {
+  customerToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) localStorage.setItem('amanah_customer_token', token);
+    else { localStorage.removeItem('amanah_customer_token'); sessionStorage.removeItem('amanah_customer_token'); }
+  }
+}
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).amanahSetToken = setAccessToken;
+  (window as unknown as Record<string, unknown>).amanahSetCustomerToken = setCustomerToken;
+}
 async function refresh(): Promise<boolean> {
-  if (!refreshInFlight) refreshInFlight = fetch(`${base}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include' }).then(async r => { if (!r.ok) return false; const data = await r.json(); accessToken = data.accessToken; return true; }).catch(() => false).finally(() => { refreshInFlight = null; });
+  if (!refreshInFlight) refreshInFlight = fetch(`${base}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include' }).then(async r => { if (!r.ok) return false; const data = await r.json(); setAccessToken(data.accessToken); return true; }).catch(() => false).finally(() => { refreshInFlight = null; });
   return refreshInFlight;
 }
 async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
@@ -18,9 +34,9 @@ async function request<T>(path: string, init: RequestInit = {}, retried = false)
 export const authApi = {
   signup: (email: string, businessName: string) => request<{ message: string }>('/v1/auth/signup/request', { method: 'POST', body: JSON.stringify({ email, businessName }) }),
   requestLogin: (email: string) => request<{ message: string }>('/v1/auth/login/request', { method: 'POST', body: JSON.stringify({ email }) }),
-  verify: async (email: string, code: string, purpose: 'LOGIN' | 'SIGNUP') => { const data = await request<{ accessToken: string; expiresIn: number; user: unknown }>('/v1/auth/otp/verify', { method: 'POST', body: JSON.stringify({ email, code, purpose }) }); accessToken = data.accessToken; return data; },
-  logout: async () => { try { await request('/v1/auth/logout', { method: 'POST' }); } finally { accessToken = null; } },
-  logoutAll: async () => { try { await request('/v1/auth/logout-all', { method: 'POST' }); } finally { accessToken = null; } },
+  verify: async (email: string, code: string, purpose: 'LOGIN' | 'SIGNUP') => { const data = await request<{ accessToken: string; expiresIn: number; user: unknown }>('/v1/auth/otp/verify', { method: 'POST', body: JSON.stringify({ email, code, purpose }) }); setAccessToken(data.accessToken); return data; },
+  logout: async () => { try { await request('/v1/auth/logout', { method: 'POST' }); } finally { setAccessToken(null); } },
+  logoutAll: async () => { try { await request('/v1/auth/logout-all', { method: 'POST' }); } finally { setAccessToken(null); } },
   me: () => request('/v1/auth/me'),
 };
 async function customerRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -51,17 +67,17 @@ async function customerRequest<T>(path: string, init: RequestInit = {}): Promise
 export const customerApi = {
   hasCustomerSession: () => Boolean(customerToken),
   signupRequest: (fullName: string, email: string) => customerRequest<{ message: string; email: string }>('/auth/signup/request', { method: 'POST', body: JSON.stringify({ fullName, email }) }),
-  verifySignup: async (email: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); customerToken = data.accessToken; return data; },
+  verifySignup: async (email: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); setCustomerToken(data.accessToken); return data; },
   requestLogin: (email: string) => customerRequest<{ message: string; email: string }>('/auth/login/request', { method: 'POST', body: JSON.stringify({ email }) }),
-  verifyLogin: async (email: string, code: string, fullName?: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login/verify', { method: 'POST', body: JSON.stringify({ email, code, fullName }) }); customerToken = data.accessToken; return data; },
+  verifyLogin: async (email: string, code: string, fullName?: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; account: { id: number; fullName: string; email: string } }>('/auth/login/verify', { method: 'POST', body: JSON.stringify({ email, code, fullName }) }); setCustomerToken(data.accessToken); return data; },
   accountPlans: () => customerRequest<CustomerOffer[]>('/account/plans'),
   accountOffer: (token: string) => customerRequest<CustomerOffer>(`/account/offers/${encodeURIComponent(token)}`),
   acceptAccountPlan: (planId: number) => customerRequest<{ status: string; plan: CustomerOffer }>(`/account/plans/${planId}/accept`, { method: 'POST' }),
   reportAccountPayment: (planId: number, note: string) => customerRequest<{ status: string; message: string }>(`/account/plans/${planId}/payment-report`, { method: 'POST', body: JSON.stringify({ note }) }),
   accountAgreement: (planId: number) => customerRequest<Blob>(`/account/plans/${planId}/agreement`),
-  logout: () => { customerToken = null; },
-  requestOtp: (token: string) => { customerToken = null; return customerRequest<{ message: string; email: string }>(`/link/${encodeURIComponent(token)}/otp/request`, { method: 'POST' }); },
-  verify: async (token: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; plan: CustomerOffer }>('/otp/verify', { method: 'POST', body: JSON.stringify({ token, code }) }); customerToken = data.accessToken; return data; },
+  logout: () => { setCustomerToken(null); },
+  requestOtp: (token: string) => { setCustomerToken(null); return customerRequest<{ message: string; email: string }>(`/link/${encodeURIComponent(token)}/otp/request`, { method: 'POST' }); },
+  verify: async (token: string, code: string) => { const data = await customerRequest<{ accessToken: string; expiresIn: number; plan: CustomerOffer }>('/otp/verify', { method: 'POST', body: JSON.stringify({ token, code }) }); setCustomerToken(data.accessToken); return data; },
   plan: () => customerRequest<CustomerOffer>('/plan'),
   accept: () => customerRequest<{ status: string; agreement: string; plan: CustomerOffer }>('/plan/accept', { method: 'POST' }),
   reportPayment: (note: string) => customerRequest<{ status: string; message: string }>('/plan/payment-report', { method: 'POST', body: JSON.stringify({ note }) }),
