@@ -80,4 +80,55 @@ export const handlers = [
   http.get('/api/dashboard', () => HttpResponse.json(summary)),
   http.get('/api/customers', () => HttpResponse.json(customers)),
   http.get('/api/plans', () => HttpResponse.json(plans)),
+  http.get('/api/v1/payments', () =>
+    HttpResponse.json([
+      {
+        id: 1,
+        planId: 1,
+        installmentId: 1,
+        amountPaise: 1500000,
+        status: 'PAID',
+        paymentMethod: 'UPI',
+        reference: 'UPI-REF-884920',
+        date: '2026-11-01 12:30',
+        itemName: 'MacBook Air M3',
+        customerId: 1,
+        customerName: 'Ayesha Khan',
+        customerPhone: '+91 98765 43210',
+      },
+    ])
+  ),
+  http.get('/api/v1/reports/monthly', () =>
+    HttpResponse.json([
+      { month: '2026-06', monthLabel: 'Jun', collectedPaise: 4800000, pendingPaise: 2400000, collected: 48, pending: 24 },
+      { month: '2026-07', monthLabel: 'Jul', collectedPaise: 5600000, pendingPaise: 3100000, collected: 56, pending: 31 },
+      { month: '2026-08', monthLabel: 'Aug', collectedPaise: 4200000, pendingPaise: 3700000, collected: 42, pending: 37 },
+      { month: '2026-09', monthLabel: 'Sep', collectedPaise: 7200000, pendingPaise: 3600000, collected: 72, pending: 36 },
+      { month: '2026-10', monthLabel: 'Oct', collectedPaise: 6400000, pendingPaise: 4200000, collected: 64, pending: 42 },
+    ])
+  ),
+  http.get('/api/v1/reports/summary', () =>
+    HttpResponse.json({
+      collectedPaise: 12450000,
+      paymentCount: 42,
+      pendingPaise: 8630000,
+      pendingPlansCount: 19,
+      overduePaise: 2140000,
+      overdueCustomersCount: 7,
+      activePlansCount: 12,
+      completedPlansCount: 8,
+      completionRate: 76,
+    })
+  ),
+  http.get('/api/v1/merchant/settings', () =>
+    HttpResponse.json({
+      businessName: 'Noor Electronics',
+      upiId: 'noor@icici',
+      contactPhone: '+91 98765 00000',
+      remindDaysBefore: 3,
+      acceptedPaymentMethods: 'UPI,BANK_TRANSFER,CASH',
+      defaultLanguage: 'en',
+    })
+  ),
 ];
+

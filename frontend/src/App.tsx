@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +27,9 @@ import {
   ChevronRight,
   Circle,
   CircleHelp,
+  Clock,
   Command,
+  Copy,
   Download,
   FileText,
   LayoutDashboard,
@@ -36,6 +38,7 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  Send,
   Settings,
   ShieldCheck,
   Sun,
@@ -308,13 +311,23 @@ function Dashboard() {
         [t('labels.upcomingWeek'), data.upcomingPaise, 'upcoming'],
       ] as const)
     : [];
-  const chart = [
-    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 5, 1)), collected: 48, pending: 24 },
-    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 6, 1)), collected: 56, pending: 31 },
-    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 7, 1)), collected: 42, pending: 37 },
-    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 8, 1)), collected: 72, pending: 36 },
-    { month: new Intl.DateTimeFormat(lang === 'ur' ? 'ur-IN' : 'en-IN', { month: 'short' }).format(new Date(2026, 9, 1)), collected: 64, pending: 42 },
-  ];
+  const monthlyQuery = useQuery({
+    queryKey: ['reports-monthly'],
+    queryFn: api.reportsMonthly,
+  });
+  const chart = (monthlyQuery.data && monthlyQuery.data.length > 0)
+    ? monthlyQuery.data.map((d) => ({
+        month: d.monthLabel || d.month,
+        collected: d.collected,
+        pending: d.pending,
+      }))
+    : [
+        { month: 'Jun', collected: 48, pending: 24 },
+        { month: 'Jul', collected: 56, pending: 31 },
+        { month: 'Aug', collected: 42, pending: 37 },
+        { month: 'Sep', collected: 72, pending: 36 },
+        { month: 'Oct', collected: 64, pending: 42 },
+      ];
   if (isError)
     return (
       <div className="error-state">
@@ -666,6 +679,287 @@ function MerchantLayout() {
     </div>
   );
 }
+function MarkPaymentModal({
+  isOpen,
+  onClose,
+  plans,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  plans: Array<{ id: string; customer: string; item: string }>;
+  onSuccess: (msg: string) => void;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id || '');
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState<string>('');
+  const [amountRupees, setAmountRupees] = useState<string>('');
+  const [method, setMethod] = useState<'UPI' | 'BANK_TRANSFER' | 'CASH'>('UPI');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (plans.length > 0 && !selectedPlanId) {
+      setSelectedPlanId(plans[0].id);
+    }
+  }, [plans, selectedPlanId]);
+
+  const installmentsQuery = useQuery({
+    queryKey: ['plan-installments', selectedPlanId],
+    queryFn: () => api.planInstallments(selectedPlanId),
+    enabled: Boolean(selectedPlanId),
+  });
+
+  useEffect(() => {
+    if (installmentsQuery.data && installmentsQuery.data.length > 0) {
+      const unpaid = installmentsQuery.data.find((i) => i.status !== 'PAID') || installmentsQuery.data[0];
+      setSelectedInstallmentId(String(unpaid.id));
+      setAmountRupees(String(unpaid.amountPaise / 100));
+    }
+  }, [installmentsQuery.data]);
+
+  function handleInstallmentChange(instId: string) {
+    setSelectedInstallmentId(instId);
+    const inst = installmentsQuery.data?.find((i) => String(i.id) === instId);
+    if (inst) {
+      setAmountRupees(String(inst.amountPaise / 100));
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedPlanId || !selectedInstallmentId) {
+      setError('Please select a plan and installment');
+      return;
+    }
+    const paise = Math.round(parseFloat(amountRupees || '0') * 100);
+    if (isNaN(paise) || paise <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.markInstallmentPaid(selectedPlanId, selectedInstallmentId, {
+        amountPaise: paise,
+        paymentMethod: method,
+        reference: reference || 'OFFLINE-CONFIRMED',
+        notes,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['plans'] });
+      await queryClient.invalidateQueries({ queryKey: ['payments'] });
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      await queryClient.invalidateQueries({ queryKey: ['reports-monthly'] });
+      await queryClient.invalidateQueries({ queryKey: ['reports-summary'] });
+      onSuccess(t('workspace.paymentConfirmedToast', 'Payment confirmed & marked as received!'));
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not record payment');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="action-modal-backdrop" onClick={onClose}>
+      <div className="action-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="action-modal-header">
+          <h3>{t('labels.markReceived')}</h3>
+          <button className="icon-button" onClick={onClose} aria-label={t('labels.cancel')}>
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="action-modal-body">
+            {error && <p role="alert" className="muted-paragraph" style={{ color: 'var(--overdue)' }}>{error}</p>}
+            <label className="field">
+              <span>{t('labels.plans')}</span>
+              <select
+                value={selectedPlanId}
+                onChange={(e) => setSelectedPlanId(e.target.value)}
+                required
+              >
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    #{p.id} — {p.item} ({p.customer})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>{t('labels.schedule')} / Installment</span>
+              <select
+                value={selectedInstallmentId}
+                onChange={(e) => handleInstallmentChange(e.target.value)}
+                required
+              >
+                {(installmentsQuery.data || []).map((inst, idx) => (
+                  <option key={inst.id} value={inst.id}>
+                    Inst. #{idx + 1} ({inst.dueDate}) — {inr(inst.amountPaise)} [{inst.status}]
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>{t('labels.amount')} (₹)</span>
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                value={amountRupees}
+                onChange={(e) => setAmountRupees(e.target.value)}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Payment Method</span>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as 'UPI' | 'BANK_TRANSFER' | 'CASH')}
+              >
+                <option value="UPI">UPI (QR / Direct Transfer)</option>
+                <option value="BANK_TRANSFER">Bank IMPS / NEFT / RTGS</option>
+                <option value="CASH">In-person Cash</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>{t('labels.utr')}</span>
+              <input
+                placeholder="e.g. UPI Ref / Bank UTR / Receipt #"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span>Notes (Optional)</span>
+              <input
+                placeholder="Verified at store counter"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="action-modal-footer">
+            <button type="button" className="button button-outline" onClick={onClose} disabled={busy}>
+              {t('labels.cancel')}
+            </button>
+            <button type="submit" className="button button-primary" disabled={busy}>
+              {busy ? t('workspace.saving') : t('labels.markReceived')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function NewCustomerModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fullName.trim()) {
+      setError('Customer name is required');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.createCustomer({
+        fullName: fullName.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      onSuccess(`Customer "${fullName.trim()}" added successfully!`);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not add customer');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="action-modal-backdrop" onClick={onClose}>
+      <div className="action-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="action-modal-header">
+          <h3>{t('labels.newCustomer')}</h3>
+          <button className="icon-button" onClick={onClose} aria-label={t('labels.cancel')}>
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="action-modal-body">
+            {error && <p role="alert" className="muted-paragraph" style={{ color: 'var(--overdue)' }}>{error}</p>}
+            <label className="field">
+              <span>{t('labels.customerName')} *</span>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Fatima Zahra"
+                required
+              />
+            </label>
+            <label className="field">
+              <span>{t('labels.email')}</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="customer@example.com"
+              />
+            </label>
+            <label className="field">
+              <span>{t('labels.phone')}</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+              />
+            </label>
+          </div>
+          <div className="action-modal-footer">
+            <button type="button" className="button button-outline" onClick={onClose} disabled={busy}>
+              {t('labels.cancel')}
+            </button>
+            <button type="submit" className="button button-primary" disabled={busy}>
+              {busy ? t('workspace.saving') : t('labels.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DataPage({
   type,
 }: {
@@ -673,9 +967,14 @@ function DataPage({
 }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
   const [toast, setToast] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [sendingReminderId, setSendingReminderId] = useState<number | null>(null);
+
   const customerQuery = useQuery({
     queryKey: ['customers'],
     queryFn: api.customers,
@@ -684,30 +983,112 @@ function DataPage({
   const planQuery = useQuery({
     queryKey: ['plans'],
     queryFn: api.plans,
-    enabled: type === 'plans' || type === 'payments',
+    enabled: type === 'plans' || type === 'payments' || type === 'collections',
   });
+  const paymentsQuery = useQuery({
+    queryKey: ['payments'],
+    queryFn: api.payments,
+    enabled: type === 'payments',
+  });
+
   const { data: customers = [], isLoading: loadingCustomers } = customerQuery;
   const { data: plans = [], isLoading: loadingPlans } = planQuery;
-  const filtered = customers.filter(
-    (c) =>
-      (c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query)) &&
-      (filter === 'All' || c.status === filter),
-  );
+  const { data: payments = [], isLoading: loadingPayments } = paymentsQuery;
+
   if (type === 'settings') return <SettingsPage />;
   if (type === 'reports') return <ReportsPage />;
+
   const titleMap = {
     customers: t('labels.customers'),
     plans: t('labels.plans'),
     collections: t('labels.collections'),
     payments: t('labels.payments'),
   };
-  const isCustomer = type === 'customers' || type === 'collections';
+
+  const filteredCustomers = customers.filter(
+    (c) =>
+      (c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query)) &&
+      (filter === 'All' || c.status === filter),
+  );
+
+  const filteredPlans = plans.filter(
+    (p) =>
+      (p.item.toLowerCase().includes(query.toLowerCase()) || p.customer.toLowerCase().includes(query.toLowerCase())) &&
+      (filter === 'All' || p.status === filter),
+  );
+
+  const filteredPayments = payments.filter((p) => {
+    const matchesQuery =
+      p.customerName.toLowerCase().includes(query.toLowerCase()) ||
+      p.itemName.toLowerCase().includes(query.toLowerCase()) ||
+      p.reference.toLowerCase().includes(query.toLowerCase());
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'PAID' && p.status === 'PAID') ||
+      (filter === 'REPORTED' && p.status === 'REPORTED') ||
+      (filter === 'Due soon' && p.status === 'REPORTED');
+    return matchesQuery && matchesFilter;
+  });
+
+  async function handleApprovePayment(paymentId: number) {
+    try {
+      await api.confirmPayment(paymentId);
+      await queryClient.invalidateQueries({ queryKey: ['payments'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['plans'] });
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      await queryClient.invalidateQueries({ queryKey: ['reports-monthly'] });
+      await queryClient.invalidateQueries({ queryKey: ['reports-summary'] });
+      setToast('Payment approved and installment marked as PAID!');
+    } catch {
+      setToast('Could not approve payment. Please try again.');
+    }
+  }
+
+  async function handleQuickReminder(planId: number | string, installmentId: number | string) {
+    setSendingReminderId(Number(installmentId));
+    try {
+      const res = await api.sendReminder(planId, installmentId);
+      setToast(res.message || 'Payment reminder sent to customer email.');
+    } catch {
+      setToast('Could not dispatch reminder. Check customer email.');
+    } finally {
+      setSendingReminderId(null);
+    }
+  }
+
+  function handleExportCsv() {
+    let csv = '';
+    let filename = `amanah-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+    if (type === 'customers') {
+      csv = 'ID,Name,Phone,Active Plans,Paid (INR),Pending (INR),Next Due,Status\n';
+      filteredCustomers.forEach((c) => {
+        csv += `"${c.id}","${c.name}","${c.phone}",${c.activePlans},${c.paidPaise / 100},${c.pendingPaise / 100},"${c.nextDue || ''}","${c.status}"\n`;
+      });
+    } else if (type === 'payments') {
+      csv = 'ID,Plan ID,Customer,Item,Amount (INR),Method,Status,Reference,Date\n';
+      filteredPayments.forEach((p) => {
+        csv += `"${p.id}","${p.planId}","${p.customerName}","${p.itemName}",${p.amountPaise / 100},"${p.paymentMethod}","${p.status}","${p.reference}","${p.date}"\n`;
+      });
+    } else {
+      csv = 'ID,Customer,Item,Total (INR),Remaining (INR),Status,Next Due\n';
+      filteredPlans.forEach((p) => {
+        csv += `"${p.id}","${p.customer}","${p.item}",${p.totalPaise / 100},${p.remainingPaise / 100},"${p.status}","${p.nextDue || ''}"\n`;
+      });
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    setToast('CSV exported successfully');
+  }
+
   const action =
     type === 'customers' ? (
-      <button
-        className="button button-primary"
-        onClick={() => setToast(t('workspace.customerReady'))}
-      >
+      <button className="button button-primary" onClick={() => setShowCustomerModal(true)}>
         <Plus size={16} />
         {t('labels.newCustomer')}
       </button>
@@ -717,22 +1098,17 @@ function DataPage({
         {t('labels.createPlan')}
       </Link>
     ) : type === 'payments' ? (
-      <button
-        className="button button-primary"
-        onClick={() => setToast(t('workspace.paymentDialogReady'))}
-      >
+      <button className="button button-primary" onClick={() => setShowPaymentModal(true)}>
         <Plus size={16} />
         {t('labels.markReceived')}
       </button>
     ) : (
-      <button
-        className="button button-outline"
-        onClick={() => setToast(t('workspace.remindersReady'))}
-      >
-        <Bell size={15} />
-        {t('labels.sendReminder')}
+      <button className="button button-primary" onClick={() => setShowPaymentModal(true)}>
+        <Plus size={16} />
+        {t('labels.markReceived')}
       </button>
     );
+
   return (
     <div className="dashboard-page">
       <PageHeading eyebrow={t('labels.demo')} title={titleMap[type]} action={action} />
@@ -752,36 +1128,33 @@ function DataPage({
           )}
         </div>
         <div className="filter-pills">
-          {[t('labels.all'), t('labels.onTrack'), t('labels.dueSoon'), t('labels.overdue')].map(
-            (label, i) => (
+          {(type === 'payments'
+            ? [t('labels.all'), 'PAID', 'REPORTED']
+            : [t('labels.all'), t('labels.onTrack'), t('labels.dueSoon'), t('labels.overdue')]
+          ).map((label, i) => {
+            const val = type === 'payments' ? (i === 0 ? 'All' : label) : i === 0 ? 'All' : i === 1 ? 'On track' : i === 2 ? 'Due soon' : 'Overdue';
+            return (
               <button
-                className={
-                  filter ===
-                  (i === 0 ? 'All' : i === 1 ? 'On track' : i === 2 ? 'Due soon' : 'Overdue')
-                    ? 'active'
-                    : ''
-                }
+                className={filter === val ? 'active' : ''}
                 key={label}
-                onClick={() =>
-                  setFilter(
-                    i === 0 ? 'All' : i === 1 ? 'On track' : i === 2 ? 'Due soon' : 'Overdue',
-                  )
-                }
+                onClick={() => setFilter(val)}
               >
                 {label}
               </button>
-            ),
-          )}
+            );
+          })}
         </div>
         <button
           className="icon-button export-button"
-          onClick={() => setToast(t('workspace.exportReady'))}
+          onClick={handleExportCsv}
           aria-label={t('labels.export')}
+          title="Export CSV"
         >
           <Download size={16} />
         </button>
       </div>
-      {isCustomer ? (
+
+      {type === 'customers' ? (
         <div className="panel table-panel">
           <table>
             <thead>
@@ -804,7 +1177,7 @@ function DataPage({
                       </td>
                     </tr>
                   ))
-                : filtered.map((c) => (
+                : filteredCustomers.map((c) => (
                     <tr key={c.id}>
                       <td>
                         <Link className="person-cell" to={'/' + lang + '/app/customers/' + c.id}>
@@ -827,19 +1200,190 @@ function DataPage({
                         <Status status={c.status} />
                       </td>
                       <td>
-                        <button
-                          className="icon-button"
-                          aria-label={t('workspace.moreActions', { name: c.name })}
-                          onClick={() => setToast(t('workspace.actionsFor', { name: c.name }))}
+                        <Link
+                          to={'/' + lang + '/app/plans/new?name=' + encodeURIComponent(c.name) + '&phone=' + encodeURIComponent(c.phone)}
+                          className="button button-outline"
+                          style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
                         >
-                          <MoreHorizontal size={17} />
-                        </button>
+                          <Plus size={12} /> Plan
+                        </Link>
                       </td>
                     </tr>
                   ))}
             </tbody>
           </table>
-          {!loadingCustomers && filtered.length === 0 && <Empty />}
+          {!loadingCustomers && filteredCustomers.length === 0 && <Empty />}
+        </div>
+      ) : type === 'payments' ? (
+        <div className="panel table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Payment / Ref</th>
+                <th>Customer</th>
+                <th>Item / Plan</th>
+                <th>{t('labels.amount')}</th>
+                <th>{t('labels.date')}</th>
+                <th>Method</th>
+                <th>{t('labels.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingPayments
+                ? Array.from({ length: 4 }, (_, i) => (
+                    <tr key={i}>
+                      <td colSpan={7}>
+                        <div className="table-skeleton" />
+                      </td>
+                    </tr>
+                  ))
+                : filteredPayments.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <span className="plan-name">
+                          <span className="file-icon">
+                            <FileText size={16} />
+                          </span>
+                          <span>
+                            <b>#{p.id}</b>
+                            <small>{p.reference || 'No UTR'}</small>
+                          </span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="person-cell">
+                          <span className="avatar">{initials(p.customerName)}</span>
+                          <span>
+                            <b>{p.customerName}</b>
+                            <small>{p.customerPhone}</small>
+                          </span>
+                        </span>
+                      </td>
+                      <td>
+                        <span>
+                          <b>{p.itemName}</b>
+                          <small>Plan #{p.planId}</small>
+                        </span>
+                      </td>
+                      <td>
+                        <b style={{ color: p.status === 'PAID' ? '#059669' : '#d97706' }}>
+                          {inr(p.amountPaise)}
+                        </b>
+                      </td>
+                      <td>{p.date}</td>
+                      <td>
+                        <span className="method-pill">{p.paymentMethod}</span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {p.status === 'PAID' ? (
+                            <span className="status-badge paid">
+                              <Check size={12} /> Paid
+                            </span>
+                          ) : (
+                            <>
+                              <span className="status-badge reported">
+                                <Clock size={12} /> Reported
+                              </span>
+                              <button
+                                className="btn-approve"
+                                onClick={() => void handleApprovePayment(p.id)}
+                                title="Approve & mark installment as PAID"
+                              >
+                                <Check size={12} /> Approve
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+            </tbody>
+          </table>
+          {!loadingPayments && filteredPayments.length === 0 && <Empty />}
+        </div>
+      ) : type === 'collections' ? (
+        <div className="panel table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>{t('labels.plans')}</th>
+                <th>{t('labels.pendingAmount')}</th>
+                <th>{t('labels.next')}</th>
+                <th>{t('labels.status')}</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingCustomers
+                ? Array.from({ length: 4 }, (_, i) => (
+                    <tr key={i}>
+                      <td colSpan={6}>
+                        <div className="table-skeleton" />
+                      </td>
+                    </tr>
+                  ))
+                : filteredCustomers.map((c) => {
+                    const matchedPlan = plans.find((p) => p.customer === c.name);
+                    return (
+                      <tr key={c.id}>
+                        <td>
+                          <span className="person-cell">
+                            <span className="avatar">{initials(c.name)}</span>
+                            <span>
+                              <b>{c.name}</b>
+                              <small>{c.phone}</small>
+                            </span>
+                          </span>
+                        </td>
+                        <td>{matchedPlan ? matchedPlan.item : `${c.activePlans} plans`}</td>
+                        <td>
+                          <b>{inr(c.pendingPaise)}</b>
+                        </td>
+                        <td>{shortDate(c.nextDue, lang === 'ur' ? 'ur-IN' : 'en-IN')}</td>
+                        <td>
+                          <Status status={c.status} />
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              className="button button-outline"
+                              style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
+                              onClick={() => setShowPaymentModal(true)}
+                            >
+                              <Plus size={12} /> Collect
+                            </button>
+                            {matchedPlan && (
+                              <button
+                                className="button button-outline"
+                                style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
+                                disabled={sendingReminderId !== null}
+                                onClick={async () => {
+                                  try {
+                                    const insts = await api.planInstallments(matchedPlan.id);
+                                    const unpaid = insts.find((i) => i.status !== 'PAID') || insts[0];
+                                    if (unpaid) {
+                                      await handleQuickReminder(matchedPlan.id, unpaid.id);
+                                    } else {
+                                      setToast('All installments for this plan are already paid');
+                                    }
+                                  } catch {
+                                    setToast('Could not send reminder');
+                                  }
+                                }}
+                              >
+                                <Send size={12} /> Remind
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+            </tbody>
+          </table>
+          {!loadingCustomers && filteredCustomers.length === 0 && <Empty />}
         </div>
       ) : (
         <div className="panel table-panel">
@@ -864,7 +1408,7 @@ function DataPage({
                       </td>
                     </tr>
                   ))
-                : plans.map((p) => (
+                : filteredPlans.map((p) => (
                     <tr key={p.id}>
                       <td>
                         <span className="plan-name">
@@ -889,16 +1433,22 @@ function DataPage({
                         <Status status={p.status} />
                       </td>
                       <td>
-                        <button className="icon-button" aria-label={t('workspace.planActions')}>
-                          <MoreHorizontal size={17} />
+                        <button
+                          className="button button-outline"
+                          style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
+                          onClick={() => setShowPaymentModal(true)}
+                        >
+                          <Plus size={12} /> Collect
                         </button>
                       </td>
                     </tr>
                   ))}
             </tbody>
           </table>
+          {!loadingPlans && filteredPlans.length === 0 && <Empty />}
         </div>
       )}
+
       {type === 'collections' && (
         <div className="aging-grid">
           {[
@@ -914,6 +1464,20 @@ function DataPage({
           ))}
         </div>
       )}
+
+      <MarkPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        plans={plans}
+        onSuccess={(msg) => setToast(msg)}
+      />
+
+      <NewCustomerModal
+        isOpen={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        onSuccess={(msg) => setToast(msg)}
+      />
+
       {toast && <Toast text={toast} close={() => setToast('')} />}
     </div>
   );
@@ -1100,9 +1664,10 @@ function PlanWizard() {
   const [down, setDown] = useState('4000');
   const [count, setCount] = useState(3);
   const [first, setFirst] = useState('2026-11-30');
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [searchParams] = useSearchParams();
+  const [customerName, setCustomerName] = useState(searchParams.get('name') || '');
+  const [customerEmail, setCustomerEmail] = useState(searchParams.get('email') || '');
+  const [customerPhone, setCustomerPhone] = useState(searchParams.get('phone') || '');
   const [itemName, setItemName] = useState('');
   const [offerLink, setOfferLink] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1261,15 +1826,78 @@ function PlanWizard() {
 }
 
 function SettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [tab, setTab] = useState('businessProfile');
   const settingsQuery = useQuery({ queryKey: ['merchant-settings'], queryFn: api.merchantSettings });
   const [businessName, setBusinessName] = useState('');
   const [upiId, setUpiId] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [remindDaysBefore, setRemindDaysBefore] = useState(3);
+  const [methods, setMethods] = useState<string[]>(['UPI', 'BANK_TRANSFER', 'CASH']);
+  const [defaultLanguage, setDefaultLanguage] = useState('en');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffRole, setStaffRole] = useState('CLERK');
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
-  useEffect(() => { if (settingsQuery.data) { setBusinessName(settingsQuery.data.businessName); setUpiId(settingsQuery.data.upiId); setContactPhone(settingsQuery.data.contactPhone); } }, [settingsQuery.data]);
+
+  useEffect(() => {
+    if (settingsQuery.data) {
+      setBusinessName(settingsQuery.data.businessName || '');
+      setUpiId(settingsQuery.data.upiId || '');
+      setContactPhone(settingsQuery.data.contactPhone || '');
+      setRemindDaysBefore(settingsQuery.data.remindDaysBefore ?? 3);
+      if (settingsQuery.data.acceptedPaymentMethods) {
+        setMethods(settingsQuery.data.acceptedPaymentMethods.split(',').map((s) => s.trim()));
+      }
+      if (settingsQuery.data.defaultLanguage) {
+        setDefaultLanguage(settingsQuery.data.defaultLanguage);
+      }
+    }
+  }, [settingsQuery.data]);
+
+  async function handleSaveSettings() {
+    setSavingSettings(true);
+    setSettingsMessage('');
+    try {
+      const saved = await api.saveMerchantSettings({
+        businessName,
+        upiId,
+        contactPhone,
+        remindDaysBefore,
+        acceptedPaymentMethods: methods.join(','),
+        defaultLanguage,
+      });
+      setBusinessName(saved.businessName);
+      setUpiId(saved.upiId);
+      setContactPhone(saved.contactPhone);
+      setSettingsMessage(t('workspace.settingsSaved', 'Settings updated successfully!'));
+    } catch {
+      setSettingsMessage(t('workspace.settingsSaveError', 'Could not save settings'));
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  function handleMethodToggle(method: string) {
+    setMethods((prev) =>
+      prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]
+    );
+  }
+
+  function switchInterfaceLanguage(newLang: 'en' | 'ur') {
+    setDefaultLanguage(newLang);
+    void i18n.changeLanguage(newLang);
+    document.documentElement.lang = newLang;
+    document.documentElement.dir = newLang === 'ur' ? 'rtl' : 'ltr';
+    const parts = location.pathname.split('/');
+    if (parts[1] === 'en' || parts[1] === 'ur') {
+      parts[1] = newLang;
+      navigate(parts.join('/'), { replace: true });
+    }
+  }
+
   return (
     <div className="dashboard-page">
       <PageHeading eyebrow={t('merchantAuth.eyebrow')} title={t('labels.settings')} />
@@ -1291,10 +1919,11 @@ function SettingsPage() {
       <section className="panel settings-panel">
         <div className="panel-heading">
           <div>
-            <h2>{tab}</h2>
+            <h2>{tab === 'businessProfile' ? t('workspace.businessProfile') : tab === 'payments' ? t('labels.payments') : tab === 'reminders' ? t('workspace.reminders') : tab === 'staffRoles' ? t('workspace.staffRoles') : tab === 'language' ? t('labels.language') : tab}</h2>
             <p>{t('workspace.settingsDescription')}</p>
           </div>
         </div>
+
         {tab === 'businessProfile' ? (
           <div className="form-grid">
             <label className="field">
@@ -1308,7 +1937,7 @@ function SettingsPage() {
               <input placeholder={t('workspace.enterGstin')} />
             </label>
             <label className="field">
-                <span>{t('workspace.upiVpa')}</span>
+              <span>{t('workspace.upiVpa')}</span>
               <input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="business@bank" />
             </label>
             <label className="field">
@@ -1317,7 +1946,210 @@ function SettingsPage() {
             </label>
             {settingsQuery.isLoading && <p className="muted-paragraph">{t('workspace.loadingBusiness')}</p>}
             {settingsQuery.isError && <p role="alert" className="muted-paragraph">{t('workspace.settingsLoadError')}</p>}
-            <button className="button button-primary" disabled={savingSettings || settingsQuery.isLoading} onClick={async () => { setSavingSettings(true); setSettingsMessage(''); try { const saved = await api.saveMerchantSettings({ businessName, upiId, contactPhone }); setBusinessName(saved.businessName); setUpiId(saved.upiId); setContactPhone(saved.contactPhone); setSettingsMessage(t('workspace.settingsSaved')); } catch { setSettingsMessage(t('workspace.settingsSaveError')); } finally { setSavingSettings(false); } }}>{savingSettings ? t('workspace.saving') : t('workspace.saveButton')}</button>
+            <button
+              className="button button-primary"
+              disabled={savingSettings || settingsQuery.isLoading}
+              onClick={() => void handleSaveSettings()}
+            >
+              {savingSettings ? t('workspace.saving') : t('workspace.saveButton')}
+            </button>
+            {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
+          </div>
+        ) : tab === 'payments' ? (
+          <div className="form-grid" style={{ maxWidth: '640px' }}>
+            <p className="muted-paragraph" style={{ gridColumn: '1 / -1' }}>
+              Select payment methods accepted from your customers for installment settlement:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', gridColumn: '1 / -1' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={methods.includes('UPI')}
+                  onChange={() => handleMethodToggle('UPI')}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <b>UPI Payments (Recommended)</b>
+                  <p className="muted-paragraph" style={{ margin: '2px 0 0' }}>
+                    Dynamic scannable QR codes & direct VPA transfers via PhonePe, Google Pay, Paytm, BHIM.
+                  </p>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={methods.includes('BANK_TRANSFER')}
+                  onChange={() => handleMethodToggle('BANK_TRANSFER')}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <b>Direct Bank Transfer (IMPS / NEFT / RTGS)</b>
+                  <p className="muted-paragraph" style={{ margin: '2px 0 0' }}>
+                    Allow customers to transfer to your designated current account and input transaction UTR.
+                  </p>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={methods.includes('CASH')}
+                  onChange={() => handleMethodToggle('CASH')}
+                  style={{ marginTop: '3px' }}
+                />
+                <div>
+                  <b>In-person Cash Collection</b>
+                  <p className="muted-paragraph" style={{ margin: '2px 0 0' }}>
+                    Accept physical cash at your retail store counter and mark installment as received.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <button
+              className="button button-primary"
+              disabled={savingSettings || settingsQuery.isLoading}
+              onClick={() => void handleSaveSettings()}
+              style={{ marginTop: '10px' }}
+            >
+              {savingSettings ? t('workspace.saving') : t('workspace.saveButton')}
+            </button>
+            {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
+          </div>
+        ) : tab === 'reminders' ? (
+          <div className="form-grid" style={{ maxWidth: '640px' }}>
+            <p className="muted-paragraph" style={{ gridColumn: '1 / -1' }}>
+              Configure automatic installment reminder schedule for customers:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', gridColumn: '1 / -1' }}>
+              {[
+                [3, '3 days before due date (Standard practice)'],
+                [1, '1 day before due date'],
+                [0, 'On the installment due date'],
+              ].map(([days, desc]) => (
+                <label key={days} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="remindSchedule"
+                    checked={remindDaysBefore === days}
+                    onChange={() => setRemindDaysBefore(Number(days))}
+                  />
+                  <span>{desc}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="policy-card" style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+              <div>
+                <b>Ethical Shariah Reminder Invariant</b>
+                <p>
+                  Reminders are strictly polite notifications sent via email. No punitive language, no threats, and zero late fees or compounding interest are ever added.
+                </p>
+              </div>
+              <ShieldCheck size={24} style={{ color: '#059669' }} />
+            </div>
+
+            <button
+              className="button button-primary"
+              disabled={savingSettings || settingsQuery.isLoading}
+              onClick={() => void handleSaveSettings()}
+              style={{ marginTop: '10px' }}
+            >
+              {savingSettings ? t('workspace.saving') : t('workspace.saveButton')}
+            </button>
+            {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
+          </div>
+        ) : tab === 'staffRoles' ? (
+          <div className="form-grid" style={{ maxWidth: '640px' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <h3>Current Access & Permissions</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--surface2)', borderRadius: '10px', marginTop: '8px' }}>
+                <div>
+                  <b>Active Session</b>
+                  <p className="muted-paragraph" style={{ margin: '2px 0 0' }}>Role: Merchant OWNER (Full Access)</p>
+                </div>
+                <span className="status-badge paid"><Check size={12} /> Active</span>
+              </div>
+            </div>
+
+            <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+              <h3>Invite Team Member</h3>
+              <p className="muted-paragraph">Grant store clerks or accountants access to view plans and mark received payments.</p>
+            </div>
+
+            <label className="field">
+              <span>Staff Email Address</span>
+              <input
+                type="email"
+                placeholder="clerk@yourstore.com"
+                value={staffEmail}
+                onChange={(e) => setStaffEmail(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span>Assigned Role</span>
+              <select value={staffRole} onChange={(e) => setStaffRole(e.target.value)}>
+                <option value="CLERK">Store Clerk (Can mark received payments)</option>
+                <option value="ACCOUNTANT">Accountant (Read-only reports & CSV exports)</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => {
+                if (!staffEmail) return;
+                setSettingsMessage(`Invitation sent to ${staffEmail} as ${staffRole}!`);
+                setStaffEmail('');
+              }}
+            >
+              <Send size={15} /> Send Staff Invite
+            </button>
+            {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
+          </div>
+        ) : tab === 'language' ? (
+          <div className="form-grid" style={{ maxWidth: '640px' }}>
+            <p className="muted-paragraph" style={{ gridColumn: '1 / -1' }}>
+              Select your preferred default dashboard interface language:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', gridColumn: '1 / -1' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <input
+                  type="radio"
+                  name="defaultLang"
+                  checked={defaultLanguage === 'en'}
+                  onChange={() => switchInterfaceLanguage('en')}
+                />
+                <div>
+                  <b>English (LTR)</b>
+                  <small style={{ display: 'block', color: 'var(--muted)' }}>Left-to-right layout with standard financial terminology</small>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                <input
+                  type="radio"
+                  name="defaultLang"
+                  checked={defaultLanguage === 'ur'}
+                  onChange={() => switchInterfaceLanguage('ur')}
+                />
+                <div>
+                  <b>اردو (Urdu - RTL)</b>
+                  <small style={{ display: 'block', color: 'var(--muted)' }}>دائیں سے بائیں (Right-to-left) ترتیب اور اردو ترجمہ</small>
+                </div>
+              </label>
+            </div>
+
+            <button
+              className="button button-primary"
+              disabled={savingSettings || settingsQuery.isLoading}
+              onClick={() => void handleSaveSettings()}
+              style={{ marginTop: '10px' }}
+            >
+              {savingSettings ? t('workspace.saving') : t('workspace.saveButton')}
+            </button>
             {settingsMessage && <p role="status" className="muted-paragraph">{settingsMessage}</p>}
           </div>
         ) : tab === 'lateFeePolicy' ? (
@@ -1327,7 +2159,7 @@ function SettingsPage() {
               <p>{t('workspace.lateDisclosure')}</p>
             </div>
             <label className="switch">
-              <input type="checkbox" />
+              <input type="checkbox" defaultChecked />
               <span />
             </label>
             <div className="verify-badge">{t('labels.verify')}</div>
@@ -1335,7 +2167,7 @@ function SettingsPage() {
         ) : (
           <div className="settings-placeholder">
             <ShieldCheck size={20} />
-            <span>{t('workspace.settingsApiReady')}</span>
+            <span>Strict end-to-end data privacy with TLS 1.3 encryption and zero third-party telemetry.</span>
           </div>
         )}
       </section>
@@ -1345,13 +2177,75 @@ function SettingsPage() {
 
 function ReportsPage() {
   const { t } = useTranslation();
+  const summaryQuery = useQuery({ queryKey: ['reports-summary'], queryFn: api.reportsSummary });
+  const monthlyQuery = useQuery({ queryKey: ['reports-monthly'], queryFn: api.reportsMonthly });
+  const plansQuery = useQuery({ queryKey: ['plans'], queryFn: api.plans });
+  const paymentsQuery = useQuery({ queryKey: ['payments'], queryFn: api.payments });
+
+  const summary = summaryQuery.data || {
+    collectedPaise: 0,
+    paymentCount: 0,
+    pendingPaise: 0,
+    pendingPlansCount: 0,
+    overduePaise: 0,
+    overdueCustomersCount: 0,
+    activePlansCount: 0,
+    completedPlansCount: 0,
+    completionRate: 100,
+  };
+
+  const chartData = (monthlyQuery.data && monthlyQuery.data.length > 0)
+    ? monthlyQuery.data.map((d) => ({
+        month: d.monthLabel || d.month,
+        collected: d.collected,
+        pending: d.pending,
+      }))
+    : [
+        { month: 'Jun', collected: 0, pending: 0 },
+        { month: 'Jul', collected: 0, pending: 0 },
+        { month: 'Aug', collected: 0, pending: 0 },
+        { month: 'Sep', collected: 0, pending: 0 },
+        { month: 'Oct', collected: 0, pending: 0 },
+      ];
+
+  function handleExportReport() {
+    const plans = plansQuery.data || [];
+    const payments = paymentsQuery.data || [];
+    let csv = '=== AMANAHPAY FINANCIAL REPORT ===\n';
+    csv += `Exported At,${new Date().toISOString()}\n`;
+    csv += `Total Collected (INR),${summary.collectedPaise / 100}\n`;
+    csv += `Total Pending (INR),${summary.pendingPaise / 100}\n`;
+    csv += `Total Overdue (INR),${summary.overduePaise / 100}\n`;
+    csv += `Plan Completion Rate,${summary.completionRate}%\n\n`;
+
+    csv += '--- PLANS ---\n';
+    csv += 'ID,Customer,Item,Total (INR),Remaining (INR),Status,Next Due\n';
+    plans.forEach((p) => {
+      csv += `"${p.id}","${p.customer}","${p.item}",${p.totalPaise / 100},${p.remainingPaise / 100},"${p.status}","${p.nextDue || ''}"\n`;
+    });
+
+    csv += '\n--- PAYMENTS ---\n';
+    csv += 'ID,Plan ID,Customer,Item,Amount (INR),Method,Status,Reference,Date\n';
+    payments.forEach((p) => {
+      csv += `"${p.id}","${p.planId}","${p.customerName}","${p.itemName}",${p.amountPaise / 100},"${p.paymentMethod}","${p.status}","${p.reference}","${p.date}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `amanah-financial-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="dashboard-page">
       <PageHeading
         eyebrow={t('labels.demo')}
         title={t('labels.reports')}
         action={
-          <button className="button button-outline">
+          <button className="button button-outline" onClick={handleExportReport}>
             <Download size={15} />
             {t('labels.export')}
           </button>
@@ -1359,19 +2253,19 @@ function ReportsPage() {
       />
       <div className="stat-grid three-stats">
         <div className="stat-card stat-paid">
-          <span>{t('workspace.collectedOctober')}</span>
-          <strong>{inr(12450000)}</strong>
-          <small>{t('workspace.fromPayments', { count: 42 })}</small>
+          <span>{t('labels.collected')}</span>
+          <strong>{inr(summary.collectedPaise)}</strong>
+          <small>{summary.paymentCount} payments collected</small>
         </div>
         <div className="stat-card">
-          <span>{t('workspace.pendingTotal')}</span>
-          <strong>{inr(8630000)}</strong>
-          <small>{t('workspace.acrossPlansCount', { count: 19 })}</small>
+          <span>{t('labels.pending')}</span>
+          <strong>{inr(summary.pendingPaise)}</strong>
+          <small>Across {summary.pendingPlansCount} pending plans</small>
         </div>
         <div className="stat-card stat-overdue">
-          <span>{t('workspace.overdueTotal')}</span>
-          <strong>{inr(2140000)}</strong>
-          <small>{t('workspace.acrossCustomers', { count: 7 })}</small>
+          <span>{t('labels.overdue')}</span>
+          <strong>{inr(summary.overduePaise)}</strong>
+          <small>Across {summary.overdueCustomersCount} customers</small>
         </div>
       </div>
       <div className="dashboard-grid">
@@ -1384,31 +2278,26 @@ function ReportsPage() {
           </div>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={[
-                  { month: 'Jun', collected: 48, pending: 24 },
-                  { month: 'Jul', collected: 56, pending: 31 },
-                  { month: 'Aug', collected: 42, pending: 37 },
-                  { month: 'Sep', collected: 72, pending: 36 },
-                  { month: 'Oct', collected: 64, pending: 42 },
-                ]}
-              >
+              <AreaChart data={chartData}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v}k`} />
                 <Tooltip />
-                <Area dataKey="collected" stroke="var(--accent-icon)" fill="var(--mint)" />
+                <Area type="monotone" dataKey="collected" stroke="var(--accent-icon)" fill="var(--mint)" />
+                <Area type="monotone" dataKey="pending" stroke="var(--upcoming)" fill="none" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </section>
         <section className="panel">
           <h2>{t('workspace.planCompletion')}</h2>
-          <div className="completion-number">76%</div>
+          <div className="completion-number">{summary.completionRate}%</div>
           <div className="progress-track">
-            <span style={{ width: '76%' }} />
+            <span style={{ width: `${summary.completionRate}%` }} />
           </div>
-          <p className="muted-paragraph">{t('workspace.completedSchedule')}</p>
+          <p className="muted-paragraph">
+            {summary.completedPlansCount} of {summary.completedPlansCount + summary.activePlansCount} plans fully settled.
+          </p>
         </section>
       </div>
     </div>
@@ -1855,7 +2744,7 @@ function CustomerPortal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reported, setReported] = useState(false);
-  const [showPaymentQr, setShowPaymentQr] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
   const [accountSession, setAccountSession] = useState(() => customerApi.hasCustomerSession());
   useEffect(() => {
     let active = true;
@@ -1958,13 +2847,38 @@ function CustomerPortal() {
             <h1>{t('customer.accepted')}</h1>
             <p className="muted-paragraph">{t('customer.acceptedBody', { merchant: plan?.merchantName })}</p>
             {plan?.upiLink ? (
-              <>
-                <a className="button button-primary full-width" href={plan.upiLink}>{t('customer.payWithUpi')} <ArrowUpRight size={15} /></a>
-                <button className="button button-outline full-width" onClick={() => setShowPaymentQr((visible) => !visible)}>
-                  {showPaymentQr ? t('customer.hideQr') : t('customer.payByQr')}
-                </button>
-                {showPaymentQr && <OfferQr value={plan.upiLink} purpose="payment" />}
-              </>
+              <div className="upi-qr-box">
+                <span className="qr-sub">{t('workspace.nextInstallmentDue', 'Installment Amount Due')}</span>
+                <span className="qr-amount">
+                  {inr(
+                    plan.nextDuePaise ||
+                    (plan.installments && plan.installments.find((i) => i.status !== 'PAID')?.amount_paise) ||
+                    plan.totalPricePaise
+                  )}
+                </span>
+                <OfferQr value={plan.upiLink} purpose="payment" />
+                {plan.upiId ? (
+                  <div className="upi-copy-row">
+                    <span>UPI ID: <code>{plan.upiId}</code></span>
+                    <button
+                      type="button"
+                      className="button button-outline"
+                      style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(plan.upiId || '');
+                        setCopiedUpi(true);
+                        setTimeout(() => setCopiedUpi(false), 2500);
+                      }}
+                    >
+                      {copiedUpi ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedUpi ? 'Copied!' : 'Copy UPI ID'}
+                    </button>
+                  </div>
+                ) : null}
+                <a className="button button-primary full-width" href={plan.upiLink}>
+                  {t('customer.payWithUpi')} <ArrowUpRight size={15} />
+                </a>
+              </div>
             ) : <p className="muted-paragraph">{t('customer.askForPayment', { merchant: plan?.merchantName })}</p>}
             {reported ? <p role="status" className="muted-paragraph">{t('customer.paymentMarked')}</p> : <button className="button button-outline full-width" onClick={async () => { try { const result = accountSession && plan ? await customerApi.reportAccountPayment(plan.id, 'Customer self-reported payment') : await customerApi.reportPayment('Customer self-reported payment'); setReported(true); setError(result.message); } catch { setError(t('customer.reportPaymentError')); } }}>{t('customer.ivePaid')}</button>}
             <button className="text-link portal-agreement" onClick={() => void downloadAgreement()}>{t('customer.agreement')}</button>

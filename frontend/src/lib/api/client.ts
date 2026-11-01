@@ -77,6 +77,8 @@ export interface CustomerOffer {
   installmentCount: number;
   installments: Array<{ id: number; amount_paise: number; status: string; dueDate: string }>;
   upiLink: string;
+  upiId?: string;
+  nextDuePaise?: number;
   agreement?: string;
 }
 export interface CreatedOffer {
@@ -90,12 +92,97 @@ export interface CreatedOffer {
   shareUrl: string;
   expiresAt: string;
 }
-export interface MerchantSettings { businessName: string; upiId: string; contactPhone: string }
+export interface PaymentRecord {
+  id: number;
+  planId: number;
+  installmentId?: number | null;
+  amountPaise: number;
+  status: 'REPORTED' | 'PAID';
+  paymentMethod: 'UPI' | 'BANK_TRANSFER' | 'CASH';
+  reference: string;
+  date: string;
+  confirmedAt?: string | null;
+  itemName: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+}
+export interface PlanInstallment {
+  id: number;
+  planId: number;
+  status: string;
+  amountPaise: number;
+  dueDate: string;
+  paidAt?: string | null;
+}
+export interface MonthlyCashflow {
+  month: string;
+  monthLabel: string;
+  collectedPaise: number;
+  pendingPaise: number;
+  collected: number;
+  pending: number;
+}
+export interface ReportsSummary {
+  collectedPaise: number;
+  paymentCount: number;
+  pendingPaise: number;
+  pendingPlansCount: number;
+  overduePaise: number;
+  overdueCustomersCount: number;
+  activePlansCount: number;
+  completedPlansCount: number;
+  completionRate: number;
+}
+export interface MerchantSettings {
+  businessName: string;
+  upiId: string;
+  contactPhone: string;
+  remindDaysBefore?: number;
+  acceptedPaymentMethods?: string;
+  defaultLanguage?: string;
+}
 export const api = {
   dashboard: () => request<DashboardSummary>('/dashboard'),
   customers: () => request<CustomerRow[]>('/customers'),
   plans: () => request<MockPlan[]>('/plans'),
-  createOffer: (offer: { customerName: string; customerEmail: string; phone?: string; itemName: string; totalPricePaise: number; downPaymentPaise: number; installmentCount: number; firstDueDate: string }) => request<CreatedOffer>('/v1/plans', { method: 'POST', body: JSON.stringify(offer) }),
+  payments: () => request<PaymentRecord[]>('/v1/payments'),
+  planInstallments: (planId: number | string) => request<PlanInstallment[]>(`/v1/plans/${planId}/installments`),
+  markInstallmentPaid: (
+    planId: number | string,
+    installmentId: number | string,
+    data: { amountPaise: number; paymentMethod: string; reference?: string; notes?: string }
+  ) =>
+    request<{ success: boolean; message: string; planStatus: string }>(
+      `/v1/plans/${planId}/installments/${installmentId}/pay`,
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
+  confirmPayment: (paymentId: number) =>
+    request<{ success: boolean; status: string }>(`/v1/payments/${paymentId}/confirm`, { method: 'POST' }),
+  sendReminder: (planId: number | string, installmentId: number | string) =>
+    request<{ success: boolean; message: string }>(`/v1/plans/${planId}/installments/${installmentId}/remind`, {
+      method: 'POST',
+    }),
+  createCustomer: (customer: { fullName: string; email?: string; phone?: string }) =>
+    request<{ id: string; name: string; email: string; phone: string }>('/v1/customers', {
+      method: 'POST',
+      body: JSON.stringify(customer),
+    }),
+  reportsMonthly: () => request<MonthlyCashflow[]>('/v1/reports/monthly'),
+  reportsSummary: () => request<ReportsSummary>('/v1/reports/summary'),
+  createOffer: (offer: {
+    customerName: string;
+    customerEmail: string;
+    phone?: string;
+    itemName: string;
+    totalPricePaise: number;
+    downPaymentPaise: number;
+    installmentCount: number;
+    firstDueDate: string;
+  }) => request<CreatedOffer>('/v1/plans', { method: 'POST', body: JSON.stringify(offer) }),
   merchantSettings: () => request<MerchantSettings>('/v1/merchant/settings'),
-  saveMerchantSettings: (settings: MerchantSettings) => request<MerchantSettings>('/v1/merchant/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  saveMerchantSettings: (settings: MerchantSettings) =>
+    request<MerchantSettings>('/v1/merchant/settings', { method: 'PUT', body: JSON.stringify(settings) }),
 };
+

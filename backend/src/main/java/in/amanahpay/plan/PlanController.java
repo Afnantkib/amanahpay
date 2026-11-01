@@ -59,6 +59,19 @@ public class PlanController {
     String base=appUrl.replaceAll("/$","");
     return Map.of("id",planId,"customerId",customerId,"itemName",req.itemName(),"totalPricePaise",req.totalPricePaise(),"downPaymentPaise",req.downPaymentPaise(),"installmentCount",req.installmentCount(),"firstDueDate",req.firstDueDate().toString(),"shareUrl",base+"/en/customer/"+raw,"expiresAt",Instant.now().plusSeconds(7*86400L).toString());
   }
+
+  @GetMapping("/{planId}/installments")
+  public List<Map<String, Object>> getPlanInstallments(@PathVariable long planId, HttpServletRequest http) {
+    long userId = userId(http);
+    Long merchantId = db.queryForObject("SELECT merchant_id FROM users WHERE id=? AND status='ACTIVE'", Long.class, userId);
+    if (merchantId == null) throw new AccessDeniedException("Merchant role required");
+    return db.queryForList(
+        "SELECT id, plan_id planId, status, amount_paise amountPaise, DATE_FORMAT(due_date, '%Y-%m-%d') dueDate, DATE_FORMAT(paid_at, '%Y-%m-%d %H:%i') paidAt " +
+        "FROM installments WHERE plan_id=? AND merchant_id=? ORDER BY due_date, id",
+        planId, merchantId
+    );
+  }
+
   private long userId(HttpServletRequest req){Object id=req.getAttribute("amanah.userId");if(id==null)throw new AccessDeniedException("Login required");return Long.parseLong(id.toString());}
   private String sha(String value){try{return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));}catch(Exception e){throw new IllegalStateException(e);}}
 }
